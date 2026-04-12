@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase, POLL_FUNCTION_URL } from './supabase';
 import './App.css';
 
-const TIER_COLORS = { base: '#6B7280', common: '#6B7280', uncommon: '#22C55E', rare: '#3B82F6', epic: '#A855F7', chase: '#F97316' };
+const TIER_COLORS = { base: '#6B7280', common: '#6B7280', uncommon: '#22C55E', rare: '#3B82F6', epic: '#A855F7', chase: '#F97316', grail: '#DC2626' };
 const CATEGORY_COLORS = {
   football:'#CF2B1F',baseball:'#1E5C3A',basketball:'#F58426',pokemon:'#FFCB05',sports:'#3B82F6',
   'one-piece':'#E4002B',other:'#8B5CF6',comic:'#A855F7',mtg:'#6B21A8',watch:'#D4AF37',
@@ -13,7 +13,7 @@ function isSports(cat) { return SPORTS_CATS.has(cat); }
 
 // Map Courtyard's raw tier names to display names based on bucket count
 const TIER_MAP_5 = ['common','uncommon','rare','epic','chase'];
-const TIER_MAP_6 = ['base','common','uncommon','rare','epic','chase'];
+const TIER_MAP_6 = ['common','uncommon','rare','epic','chase','grail'];
 function displayTier(rawTier, bucketIndex, totalBuckets) {
   if (totalBuckets === 5) return TIER_MAP_5[bucketIndex] || rawTier;
   if (totalBuckets === 6) return TIER_MAP_6[bucketIndex] || rawTier;
