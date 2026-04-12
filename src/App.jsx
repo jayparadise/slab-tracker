@@ -8,6 +8,8 @@ const CATEGORY_COLORS = {
   'one-piece':'#E4002B',other:'#8B5CF6',comic:'#A855F7',mtg:'#6B21A8',watch:'#D4AF37',
   soccer:'#22C55E',hockey:'#A5ACAF',wildcard:'#EC4899',watches:'#D4AF37',
 };
+const SPORTS_CATS = new Set(['football','baseball','basketball','sports','soccer','hockey']);
+function isSports(cat) { return SPORTS_CATS.has(cat); }
 
 function getValueSignal(r){
   if(r>=1.15)return{label:'GREAT VALUE',color:'#00FF88',bg:'rgba(0,255,136,0.12)'};
@@ -106,6 +108,7 @@ export default function App(){
   const[pulls,setPulls]=useState([]);
   const[selectedId,setSelectedId]=useState(null);
   const[catFilter,setCatFilter]=useState('ALL');
+  const[section,setSection]=useState('ALL'); // ALL, SPORTS, COLLECTIBLES
   const[sortBy,setSortBy]=useState('ev');
   const[lastPolled,setLastPolled]=useState(null);
   const[isLive,setIsLive]=useState(false);
@@ -114,6 +117,7 @@ export default function App(){
   const[chartRange,setChartRange]=useState('ALL');
 
   const packTitleMap=useMemo(()=>{const m={};packs.forEach(p=>{m[p.id]=p.title;});return m;},[packs]);
+  const packCatMap=useMemo(()=>{const m={};packs.forEach(p=>{m[p.id]=p.category;});return m;},[packs]);
 
   const fetchData=useCallback(async()=>{
     try{
@@ -167,17 +171,31 @@ export default function App(){
     f();const iv=setInterval(f,5000);return()=>clearInterval(iv);
   },[selectedId]);
 
-  const categories=useMemo(()=>{const c={};packs.forEach(p=>{if(p.evRatio>0)c[p.category]=(c[p.category]||0)+1;});return c;},[packs]);
+  const sectionPacks=useMemo(()=>{
+    if(section==='ALL')return packs;
+    return packs.filter(p=>section==='SPORTS'?isSports(p.category):!isSports(p.category));
+  },[packs,section]);
+
+  const categories=useMemo(()=>{const c={};sectionPacks.forEach(p=>{if(p.evRatio>0)c[p.category]=(c[p.category]||0)+1;});return c;},[sectionPacks]);
   const filtered=useMemo(()=>{
-    let l=catFilter==='ALL'?packs:packs.filter(p=>p.category===catFilter);
+    let l=catFilter==='ALL'?sectionPacks:sectionPacks.filter(p=>p.category===catFilter);
     l=l.filter(p=>p.evRatio>0);
     l.sort((a,b)=>sortBy==='ev'?b.evRatio-a.evRatio:Number(a.price_usd)-Number(b.price_usd));
     return l;
-  },[packs,catFilter,sortBy]);
+  },[sectionPacks,catFilter,sortBy]);
+
+  const filteredPulls=useMemo(()=>{
+    if(section==='ALL')return pulls;
+    return pulls.filter(p=>{const cat=packCatMap[p.pack_id];if(!cat)return section==='COLLECTIBLES';return section==='SPORTS'?isSports(cat):!isSports(cat);});
+  },[pulls,section,packCatMap]);
 
   const sel=packs.find(p=>p.id===selectedId);
   const best=filtered[0];
   const handlePullClick=useCallback((pid)=>{if(pid)setSelectedId(pid);},[]);
+  const handleSection=useCallback((s)=>{setSection(s);setCatFilter('ALL');},[]);
+
+  const sportCount=packs.filter(p=>p.evRatio>0&&isSports(p.category)).length;
+  const collectCount=packs.filter(p=>p.evRatio>0&&!isSports(p.category)).length;
 
   return(
     <div className="app">
@@ -191,8 +209,14 @@ export default function App(){
         <div className="h-right"><a href="https://courtyard.io/vending-machine" target="_blank" rel="noreferrer" className="open-btn">OPEN PACK</a></div>
       </header>
 
+      <div className="section-tabs">
+        <button className={`stab ${section==='ALL'?'ac':''}`} onClick={()=>handleSection('ALL')}>ALL</button>
+        <button className={`stab ${section==='SPORTS'?'ac':''}`} onClick={()=>handleSection('SPORTS')}>⚾ SPORTS {sportCount}</button>
+        <button className={`stab ${section==='COLLECTIBLES'?'ac':''}`} onClick={()=>handleSection('COLLECTIBLES')}>🃏 COLLECTIBLES {collectCount}</button>
+      </div>
+
       <div className="cat-bar">
-        <button className={`cb ${catFilter==='ALL'?'ac':''}`} onClick={()=>setCatFilter('ALL')}>ALL {packs.filter(p=>p.evRatio>0).length}</button>
+        <button className={`cb ${catFilter==='ALL'?'ac':''}`} onClick={()=>setCatFilter('ALL')}>ALL {sectionPacks.filter(p=>p.evRatio>0).length}</button>
         {Object.entries(categories).sort().map(([c,n])=><button key={c} className={`cb ${catFilter===c?'ac':''}`} onClick={()=>setCatFilter(c)}>{c.toUpperCase().replace(/-/g,' ')} {n}</button>)}
       </div>
 
@@ -253,7 +277,7 @@ export default function App(){
       {!sel&&(
         <div className="main">
           <div className="pack-list">
-            <div className="list-hdr"><span>All Packs</span><div className="sorts"><button className={`sb ${sortBy==='ev'?'ac':''}`} onClick={()=>setSortBy('ev')}>EV Ratio</button><button className={`sb ${sortBy==='price'?'ac':''}`} onClick={()=>setSortBy('price')}>Price</button></div></div>
+            <div className="list-hdr"><span>{section==='ALL'?'All Packs':section==='SPORTS'?'Sports Packs':'Collectible Packs'}</span><div className="sorts"><button className={`sb ${sortBy==='ev'?'ac':''}`} onClick={()=>setSortBy('ev')}>EV Ratio</button><button className={`sb ${sortBy==='price'?'ac':''}`} onClick={()=>setSortBy('price')}>Price</button></div></div>
             <div className="tbl-hdr"><span className="c1">#</span><span className="c2">PACK</span><span className="c3">EV RATIO</span><span className="c4">PRICE</span><span className="c5">EV $</span><span className="c6">PULLS</span><span className="c7">SIGNAL</span></div>
             <div className="rows">
               {filtered.map((p,i)=>(
@@ -272,7 +296,7 @@ export default function App(){
           </div>
           <div className="feeds">
             <div className="feed-hdr"><div className="feed-t"><span>🔥</span> Just Pulled</div><div className="live-sm"><span className="dot-sm"/><span>live</span></div></div>
-            <div className="pull-list">{!pulls.length?<div className="empty-p">Monitoring for pulls...</div>:pulls.map(p=><PullItem key={p.id} pull={p} packTitle={packTitleMap[p.pack_id]} onPackClick={handlePullClick}/>)}</div>
+            <div className="pull-list">{!filteredPulls.length?<div className="empty-p">Monitoring for pulls...</div>:filteredPulls.map(p=><PullItem key={p.id} pull={p} packTitle={packTitleMap[p.pack_id]} onPackClick={handlePullClick}/>)}</div>
           </div>
         </div>
       )}
