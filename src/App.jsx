@@ -31,8 +31,8 @@ function displayPullTier(rawTier, odds) {
 }
 
 function getValueSignal(r){
-  if(r>=1.15)return{label:'GREAT VALUE',color:'#15803D',bg:'rgba(22,163,74,0.1)'};
-  if(r>=1.05)return{label:'GOOD VALUE',color:'#16A34A',bg:'rgba(22,163,74,0.06)'};
+  if(r>=1.15)return{label:'GREAT VALUE',color:'#16A34A',bg:'rgba(22,163,74,0.1)'};
+  if(r>=1.05)return{label:'GOOD VALUE',color:'#334155',bg:'rgba(51,65,85,0.08)'};
   if(r>=0.97)return{label:'FAIR',color:'#A16207',bg:'rgba(161,98,7,0.08)'};
   if(r>=0.93)return{label:'SLIGHT EDGE TO HOUSE',color:'#C2410C',bg:'rgba(194,65,12,0.08)'};
   return{label:'OVERPRICED',color:'#DC2626',bg:'rgba(220,38,38,0.08)'};
@@ -77,8 +77,8 @@ function EVChart({snapshots,timeRange}){
     <svg viewBox={`0 0 ${W} ${H+25}`} className="ev-chart">
       {yTicks.map((t,i)=><g key={i}><line x1={50} x2={W-10} y1={t.y} y2={t.y} stroke="rgba(0,0,0,0.06)"/><text x={45} y={t.y+4} fill="rgba(0,0,0,0.35)" fontSize="10" textAnchor="end">{t.val.toFixed(3)}</text></g>)}
       {breakY>0&&breakY<H+20&&<><line x1={50} x2={W-10} y1={breakY} y2={breakY} stroke="#DC2626" strokeWidth="1" strokeDasharray="4,3"/><text x={W-8} y={breakY-4} fill="#DC2626" fontSize="9" textAnchor="end">1.000</text></>}
-      <polyline points={pts.map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-      {last&&<><circle cx={last.x} cy={last.y} r="4" fill="#16A34A"/><rect x={last.x+6} y={last.y-10} width={50} height={20} rx={4} fill="#16A34A"/><text x={last.x+31} y={last.y+4} fill="#fff" fontSize="11" fontWeight="700" textAnchor="middle">{last.v.toFixed(3)}</text></>}
+      <polyline points={pts.map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+      {last&&<><circle cx={last.x} cy={last.y} r="4" fill="#334155"/><rect x={last.x+6} y={last.y-10} width={50} height={20} rx={4} fill="#334155"/><text x={last.x+31} y={last.y+4} fill="#fff" fontSize="11" fontWeight="700" textAnchor="middle">{last.v.toFixed(3)}</text></>}
       {tLabels.map((t,i)=><text key={i} x={t.x} y={H+18} fill="rgba(0,0,0,0.3)" fontSize="9" textAnchor="middle">{t.label}</text>)}
     </svg>
   );
@@ -335,7 +335,7 @@ export default function App(){
                 <div key={p.id} className="row" onClick={()=>setSelectedId(p.id)}>
                   <span className="c1">#{i+1}</span>
                   <div className="c2"><div className="rn">{p.title}</div><div className="rm"><span className="cd" style={{background:CATEGORY_COLORS[p.category]||'#666'}}/><span className="dim">CY</span>{p.out_of_stock&&<span className="oos">OOS</span>}</div></div>
-                  <div className="c3"><span className="ev-n">{p.evRatio.toFixed(3)}</span><Sparkline data={(snapshots[p.id]||[]).map(s=>Number(s.effective_ev_ratio))} width={40} height={16} color={p.evRatio>=1?'#16A34A':'#DC2626'}/></div>
+                  <div className="c3"><span className="ev-n">{p.evRatio.toFixed(3)}</span><Sparkline data={(snapshots[p.id]||[]).map(s=>Number(s.effective_ev_ratio))} width={40} height={16} color={p.evRatio>=1?'#334155':'#DC2626'}/></div>
                   <span className="c4">${Number(p.price_usd).toFixed(0)}</span>
                   <span className="c5 cy">${(p.evRatio*Number(p.price_usd)).toFixed(2)}</span>
                   <span className="c6">{p.totalPulls>0?p.totalPulls.toLocaleString():'—'}</span>
