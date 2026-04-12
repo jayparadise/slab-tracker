@@ -31,7 +31,7 @@ function displayPullTier(rawTier, odds) {
 }
 
 function getValueSignal(r){
-  if(r>=1.30)return{label:'GREAT VALUE',color:'#16A34A',bg:'rgba(22,163,74,0.1)'};
+  if(r>=1.20)return{label:'GREAT VALUE',color:'#16A34A',bg:'rgba(22,163,74,0.1)'};
   if(r>=1.10)return{label:'GOOD VALUE',color:'#334155',bg:'rgba(51,65,85,0.08)'};
   if(r>=1.00)return{label:'FAIR',color:'#A16207',bg:'rgba(161,98,7,0.08)'};
   if(r>=0.90)return{label:'BELOW AVERAGE',color:'#C2410C',bg:'rgba(194,65,12,0.08)'};
@@ -132,7 +132,7 @@ function OddsBreakdown({odds,price,pulls}){
   );
 }
 
-function PullItem({pull,packTitle,onPackClick,odds}){
+function PullItem({pull,packTitle,onPackClick,odds,evAtPull}){
   const tier = odds ? displayPullTier(pull.tier, odds) : pull.tier;
   return(
     <div className="pull-item" onClick={()=>onPackClick?.(pull.pack_id)}>
@@ -148,6 +148,7 @@ function PullItem({pull,packTitle,onPackClick,odds}){
         </div>
         {packTitle&&<div className="pull-pack-name">{packTitle}</div>}
       </div>
+      {evAtPull!=null&&<div className="pull-ev">{evAtPull.toFixed(3)}</div>}
     </div>
   );
 }
@@ -320,17 +321,18 @@ export default function App(){
               <div className="det-left">
                 <div className="det-pulls">
                   <div className="section-hdr"><div className="feed-t"><span>🔥</span> Just Pulled</div><div className="live-sm"><span className="dot-sm"/><span>live</span></div></div>
-                  <div className="det-pull-list">{packPulls.length===0?<div className="empty-p">Monitoring for pulls...</div>:packPulls.map(p=><PullItem key={p.id} pull={p} odds={sel.odds}/>)}</div>
+                  <div className="det-pull-list">{packPulls.length===0?<div className="empty-p">Monitoring for pulls...</div>:packPulls.map(p=>{
+                    // Find EV ratio at the time of this pull
+                    const pullTime=new Date(p.detected_at).getTime();
+                    const snaps=snapshots[sel.id]||[];
+                    let evAtPull=null;
+                    for(const s of snaps){if(new Date(s.polled_at).getTime()<=pullTime)evAtPull=Number(s.effective_ev_ratio);else break;}
+                    if(!evAtPull&&snaps.length)evAtPull=Number(snaps[0]?.effective_ev_ratio);
+                    return <PullItem key={p.id} pull={p} odds={sel.odds} evAtPull={evAtPull}/>;
+                  })}</div>
                 </div>
               </div>
               <div className="det-right">
-                <div className="chart-sec">
-                  <div className="section-hdr">
-                    <span>EV Ratio <span className="cy">{sel.evRatio.toFixed(3)}</span></span>
-                    <div className="time-btns">{TIME_RANGES.map(t=><button key={t.label} className={`time-btn ${chartRange===t.label?'ac':''}`} onClick={()=>setChartRange(t.label)}>{t.label}</button>)}</div>
-                  </div>
-                  <div className="chart-wrap"><EVChart snapshots={snapshots[sel.id]||[]} timeRange={chartRange}/></div>
-                </div>
                 <OddsBreakdown odds={sel.odds} price={Number(sel.price_usd)} pulls={packPulls}/>
               </div>
             </div>
