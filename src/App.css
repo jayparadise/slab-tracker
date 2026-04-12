@@ -89,6 +89,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Source Sans 3', 
 .sb { padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--dim); font-size: 11px; cursor: pointer; font-family: inherit; font-weight: 500; }
 .sb.ac { background: var(--text); color: #fff; border-color: var(--text); }
 .tbl-hdr { display: grid; grid-template-columns: 32px 1fr 90px 60px 80px 50px 100px 70px; gap: 6px; padding: 8px 16px; font-size: 10px; color: var(--dim); font-weight: 600; text-transform: uppercase; border-bottom: 1px solid var(--border); background: var(--bg); }
+.tbl-hdr .sortable { cursor: pointer; user-select: none; }
+.tbl-hdr .sortable:hover { color: var(--text); }
 .row { display: grid; grid-template-columns: 32px 1fr 90px 60px 80px 50px 100px 70px; gap: 6px; padding: 10px 16px; border-bottom: 1px solid rgba(0,0,0,0.03); cursor: pointer; align-items: center; font-size: 13px; }
 .row:hover { background: rgba(51,65,85,0.04); }
 .c1 { font-size: 12px; color: var(--dim); font-weight: 600; }
@@ -124,7 +126,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Source Sans 3', 
 .pull-img-ph { width: 44px; height: 44px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); }
 /* Hover popup */
 .pull-img-wrap:hover .pull-img-popup { display: block; }
-.pull-img-popup { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 400px; height: 400px; border-radius: 14px; object-fit: contain; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 20px 60px rgba(0,0,0,0.3); z-index: 200; padding: 16px; pointer-events: none; }
+.pull-img-popup { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 1200px; height: 1200px; max-width: 90vw; max-height: 90vh; border-radius: 14px; object-fit: contain; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 20px 60px rgba(0,0,0,0.3); z-index: 200; padding: 24px; pointer-events: none; }
 .pull-info { flex: 1; min-width: 0; }
 .pull-title { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
 .pull-meta { display: flex; gap: 8px; align-items: center; margin-top: 3px; }
