@@ -172,23 +172,15 @@ export default function App(){
 
   const fetchData=useCallback(async()=>{
     try{
-      const[{data:pd},{data:latestSnaps},{data:chartSnaps},{data:pld}]=await Promise.all([
+      const[{data:pd},{data:latestSnaps},{data:pld}]=await Promise.all([
         supabase.from('pack_config').select('*').eq('active',true),
-        // Latest snapshots: descending, limit 200 covers all ~58 packs' most recent poll
         supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,calibrated_ev_usd,inventory_count,out_of_stock,polled_at,price_usd,real_avg_pull_value,total_cumulative_pulls').order('polled_at',{ascending:false}).limit(200),
-        // Chart history: last 24h, sampled down. Use range to get more rows for charts.
-        supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,polled_at').gte('polled_at',new Date(Date.now()-24*3600000).toISOString()).order('polled_at',{ascending:true}).limit(10000),
         supabase.from('pulls').select('*').order('detected_at',{ascending:false}).limit(100),
       ]);
       if(pd){
-        // Group chart snapshots for trend calculation
-        const snapGroups={};
-        for(const s of chartSnaps||[]){if(!snapGroups[s.pack_id])snapGroups[s.pack_id]=[];snapGroups[s.pack_id].push(s);}
-        
         const latest={};
         for(const s of latestSnaps||[]){if(!latest[s.pack_id])latest[s.pack_id]=s;}
         
-        // Build last pull time per pack
         const lastPullMap={};
         for(const pl of pld||[]){if(!lastPullMap[pl.pack_id])lastPullMap[pl.pack_id]=pl.detected_at;}
         
@@ -198,23 +190,17 @@ export default function App(){
           const avgPull=snap?Number(snap.real_avg_pull_value||0):0;
           const totalP=snap?Number(snap.total_cumulative_pulls||0):0;
           
-          // Compute trend: current EV vs EV before last 10 pulls
+          // Compute trend from latest snapshots
           let evTrend=0;
-          const history=snapGroups[p.id]||[];
-          if(history.length>10){
-            // Find how many snapshots ago corresponds to ~10 pulls back
-            // Use total_cumulative_pulls if available, otherwise compare oldest vs newest
-            const currentEv=r;
-            const tenPullsAgo=history.length>10?history[Math.max(0,history.length-11)]:history[0];
-            const oldEv=Number(tenPullsAgo.effective_ev_ratio);
-            if(oldEv>0)evTrend=currentEv-oldEv;
+          const packSnaps=(latestSnaps||[]).filter(s=>s.pack_id===p.id);
+          if(packSnaps.length>=2){
+            const newest=Number(packSnaps[0].effective_ev_ratio);
+            const older=Number(packSnaps[Math.min(10,packSnaps.length-1)].effective_ev_ratio);
+            if(older>0)evTrend=newest-older;
           }
           
           return{...p,evRatio:r,signal:getValueSignal(r),realAvgPull:avgPull,totalPulls:totalP,evTrend,lastPullAt:lastPullMap[p.id]||null};
         }));
-        setSnapshots(snapGroups);
-      }else{
-        if(chartSnaps){const g={};for(const s of chartSnaps){if(!g[s.pack_id])g[s.pack_id]=[];g[s.pack_id].push(s);}setSnapshots(g);}
       }
       if(pld)setPulls(pld);
       setLastPolled(new Date());
@@ -240,8 +226,15 @@ export default function App(){
   },[fetchData,triggerPoll]);
 
   useEffect(()=>{
-    if(!selectedId){setPackPulls([]);return;}
-    const f=async()=>{const{data}=await supabase.from('pulls').select('*').eq('pack_id',selectedId).order('detected_at',{ascending:false}).limit(100);if(data)setPackPulls(data);};
+    if(!selectedId){setPackPulls([]);setSnapshots({});return;}
+    const f=async()=>{
+      const[{data:pullData},{data:chartData}]=await Promise.all([
+        supabase.from('pulls').select('*').eq('pack_id',selectedId).order('detected_at',{ascending:false}).limit(100),
+        supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,polled_at').eq('pack_id',selectedId).gte('polled_at',new Date(Date.now()-24*3600000).toISOString()).order('polled_at',{ascending:true}).limit(1000),
+      ]);
+      if(pullData)setPackPulls(pullData);
+      if(chartData)setSnapshots(prev=>({...prev,[selectedId]:chartData}));
+    };
     f();const iv=setInterval(f,5000);return()=>clearInterval(iv);
   },[selectedId]);
 
