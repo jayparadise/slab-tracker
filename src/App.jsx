@@ -84,7 +84,11 @@ function PullItem({ pull }) {
       {pull.image_url ? <img src={pull.image_url} alt="" className="pull-img" /> : <div className="pull-img-ph" />}
       <div className="pull-info">
         <div className="pull-title">{pull.title}</div>
-        <div className="pull-meta"><span className="pull-tier" style={{ background: tc[pull.tier] || '#22C55E' }}>{pull.tier}</span><span className="pull-time">{timeAgo(pull.detected_at)}</span></div>
+        <div className="pull-meta">
+          <span className="pull-tier" style={{ background: tc[pull.tier] || '#22C55E' }}>{pull.tier}</span>
+          {pull.buyback_usd && <span className="pull-fmv">${pull.buyback_usd.toFixed(2)}</span>}
+          <span className="pull-time">{timeAgo(pull.detected_at)}</span>
+        </div>
       </div>
     </div>
   );
@@ -100,6 +104,7 @@ export default function App() {
   const [lastPolled, setLastPolled] = useState(null);
   const [isLive, setIsLive] = useState(false);
   const [pollInfo, setPollInfo] = useState('');
+  const [packPulls, setPackPulls] = useState([]);
   const tickRef = useRef(0);
 
   function calcEV(pack) {
@@ -151,6 +156,23 @@ export default function App() {
     const a = setInterval(triggerPoll, 5000);
     return () => clearInterval(a);
   }, [fetchData, triggerPoll]);
+
+  // Fetch pulls for selected pack
+  useEffect(() => {
+    if (!selectedId) { setPackPulls([]); return; }
+    const fetchPackPulls = async () => {
+      const { data } = await supabase
+        .from('pulls')
+        .select('*')
+        .eq('pack_id', selectedId)
+        .order('detected_at', { ascending: false })
+        .limit(50);
+      if (data) setPackPulls(data);
+    };
+    fetchPackPulls();
+    const interval = setInterval(fetchPackPulls, 5000);
+    return () => clearInterval(interval);
+  }, [selectedId]);
 
   const categories = useMemo(() => {
     const c = {};
@@ -226,6 +248,21 @@ export default function App() {
               <div className="chart-wrap"><EVChart snapshots={snapshots[sel.id] || []} /></div>
             </div>
             <OddsBreakdown odds={sel.odds} price={Number(sel.price_usd)} />
+
+            {/* Per-pack pull feed */}
+            <div className="det-pulls">
+              <div className="section-hdr">
+                <div className="feed-t"><span>🔥</span> Just Pulled</div>
+                <div className="live-sm"><span className="dot-sm" /><span>live</span></div>
+              </div>
+              <div className="det-pull-list">
+                {packPulls.length === 0 ? (
+                  <div className="empty-p">Monitoring for pulls on this pack...</div>
+                ) : (
+                  packPulls.map(p => <PullItem key={p.id} pull={p} />)
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
