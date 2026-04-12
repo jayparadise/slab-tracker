@@ -11,12 +11,31 @@ const CATEGORY_COLORS = {
 const SPORTS_CATS = new Set(['football','baseball','basketball','sports','soccer','hockey']);
 function isSports(cat) { return SPORTS_CATS.has(cat); }
 
+// Map Courtyard's raw tier names to display names based on bucket count
+const TIER_MAP_5 = ['common','uncommon','rare','epic','chase'];
+const TIER_MAP_6 = ['base','common','uncommon','rare','epic','chase'];
+function displayTier(rawTier, bucketIndex, totalBuckets) {
+  if (totalBuckets === 5) return TIER_MAP_5[bucketIndex] || rawTier;
+  if (totalBuckets === 6) return TIER_MAP_6[bucketIndex] || rawTier;
+  if (totalBuckets === 4) return ['common','rare','epic','chase'][bucketIndex] || rawTier;
+  if (totalBuckets === 3) return ['common','rare','chase'][bucketIndex] || rawTier;
+  return rawTier;
+}
+// For pull items, map based on what we know
+function displayPullTier(rawTier, odds) {
+  if (!odds?.buckets) return rawTier;
+  const n = odds.buckets.length;
+  const idx = odds.buckets.findIndex(b => b.tier === rawTier);
+  if (idx === -1) return rawTier;
+  return displayTier(rawTier, idx, n);
+}
+
 function getValueSignal(r){
-  if(r>=1.15)return{label:'GREAT VALUE',color:'#00FF88',bg:'rgba(0,255,136,0.12)'};
-  if(r>=1.05)return{label:'GOOD VALUE',color:'#22D3EE',bg:'rgba(34,211,238,0.12)'};
-  if(r>=0.97)return{label:'FAIR',color:'#FCD34D',bg:'rgba(252,211,77,0.12)'};
-  if(r>=0.93)return{label:'SLIGHT EDGE TO HOUSE',color:'#FB923C',bg:'rgba(251,146,60,0.12)'};
-  return{label:'OVERPRICED',color:'#EF4444',bg:'rgba(239,68,68,0.12)'};
+  if(r>=1.15)return{label:'GREAT VALUE',color:'#059669',bg:'rgba(5,150,105,0.1)'};
+  if(r>=1.05)return{label:'GOOD VALUE',color:'#0891B2',bg:'rgba(8,145,178,0.1)'};
+  if(r>=0.97)return{label:'FAIR',color:'#D97706',bg:'rgba(217,119,6,0.1)'};
+  if(r>=0.93)return{label:'SLIGHT EDGE TO HOUSE',color:'#EA580C',bg:'rgba(234,88,12,0.1)'};
+  return{label:'OVERPRICED',color:'#DC2626',bg:'rgba(220,38,38,0.1)'};
 }
 function timeAgo(d){const s=Math.floor((Date.now()-new Date(d).getTime())/1000);if(s<5)return'just now';if(s<60)return`${s}s ago`;if(s<3600)return`${Math.floor(s/60)}m ago`;return`${Math.floor(s/3600)}h ago`;}
 
@@ -34,7 +53,15 @@ function EVChart({snapshots,timeRange}){
   if(!all.length)return<div className="chart-empty">Waiting for data...</div>;
   const rangeMs=TIME_RANGES.find(t=>t.label===timeRange)?.ms||Infinity;
   const cutoff=rangeMs===Infinity?0:Date.now()-rangeMs;
-  const data=all.filter(s=>new Date(s.polled_at).getTime()>=cutoff);
+  const inRange=all.filter(s=>new Date(s.polled_at).getTime()>=cutoff);
+  // Deduplicate: only keep points where EV changed, plus first and last
+  const data=[];
+  for(let i=0;i<inRange.length;i++){
+    const ev=Number(inRange[i].effective_ev_ratio);
+    const prevEv=i>0?Number(inRange[i-1].effective_ev_ratio):null;
+    const nextEv=i<inRange.length-1?Number(inRange[i+1].effective_ev_ratio):null;
+    if(i===0||i===inRange.length-1||ev!==prevEv||ev!==nextEv)data.push(inRange[i]);
+  }
   if(data.length<2)return<div className="chart-empty">Collecting... ({all.length} points, need 2+ in range)</div>;
   const ratios=data.map(s=>Number(s.effective_ev_ratio));
   const mn=Math.min(...ratios),mx=Math.max(...ratios),rng=mx-mn||0.01;
@@ -48,27 +75,47 @@ function EVChart({snapshots,timeRange}){
   if(data.length>1){const step=Math.max(1,Math.floor(data.length/6));for(let i=0;i<data.length;i+=step){const t=new Date(data[i].polled_at);tLabels.push({x:50+(i/Math.max(data.length-1,1))*(W-70),label:t.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})});}}
   return(
     <svg viewBox={`0 0 ${W} ${H+25}`} className="ev-chart">
-      {yTicks.map((t,i)=><g key={i}><line x1={50} x2={W-10} y1={t.y} y2={t.y} stroke="rgba(255,255,255,0.06)"/><text x={45} y={t.y+4} fill="rgba(255,255,255,0.3)" fontSize="10" textAnchor="end">{t.val.toFixed(3)}</text></g>)}
-      {breakY>0&&breakY<H+20&&<><line x1={50} x2={W-10} y1={breakY} y2={breakY} stroke="#EF4444" strokeWidth="1" strokeDasharray="4,3"/><text x={W-8} y={breakY-4} fill="#EF4444" fontSize="9" textAnchor="end">1.000</text></>}
-      <polyline points={pts.map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke="#22D3EE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-      {last&&<><circle cx={last.x} cy={last.y} r="4" fill="#22D3EE"/><rect x={last.x+6} y={last.y-10} width={50} height={20} rx={4} fill="#22D3EE"/><text x={last.x+31} y={last.y+4} fill="#000" fontSize="11" fontWeight="700" textAnchor="middle">{last.v.toFixed(3)}</text></>}
-      {tLabels.map((t,i)=><text key={i} x={t.x} y={H+18} fill="rgba(255,255,255,0.25)" fontSize="9" textAnchor="middle">{t.label}</text>)}
+      {yTicks.map((t,i)=><g key={i}><line x1={50} x2={W-10} y1={t.y} y2={t.y} stroke="rgba(0,0,0,0.06)"/><text x={45} y={t.y+4} fill="rgba(0,0,0,0.35)" fontSize="10" textAnchor="end">{t.val.toFixed(3)}</text></g>)}
+      {breakY>0&&breakY<H+20&&<><line x1={50} x2={W-10} y1={breakY} y2={breakY} stroke="#DC2626" strokeWidth="1" strokeDasharray="4,3"/><text x={W-8} y={breakY-4} fill="#DC2626" fontSize="9" textAnchor="end">1.000</text></>}
+      <polyline points={pts.map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke="#0891B2" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+      {last&&<><circle cx={last.x} cy={last.y} r="4" fill="#0891B2"/><rect x={last.x+6} y={last.y-10} width={50} height={20} rx={4} fill="#0891B2"/><text x={last.x+31} y={last.y+4} fill="#fff" fontSize="11" fontWeight="700" textAnchor="middle">{last.v.toFixed(3)}</text></>}
+      {tLabels.map((t,i)=><text key={i} x={t.x} y={H+18} fill="rgba(0,0,0,0.3)" fontSize="9" textAnchor="middle">{t.label}</text>)}
     </svg>
   );
 }
 
-function OddsBreakdown({odds,price}){
+function OddsBreakdown({odds,price,pulls}){
   if(!odds?.buckets)return null;
   const buckets=odds.buckets;
+  const n=buckets.length;
   const maxPct=Math.max(...buckets.map(b=>b.oddsPercent||0));
   const profitPct=buckets.filter(b=>(b.minValueUsd||0)>=price).reduce((s,b)=>s+(b.oddsPercent||0),0);
+  
+  // Count pulls per bucket by FMV range
+  const pullCounts=buckets.map(b=>{
+    if(!pulls?.length)return 0;
+    return pulls.filter(p=>{
+      const v=Number(p.value_usd)||0;
+      return v>=b.minValueUsd&&v<b.maxValueUsd;
+    }).length;
+  });
+  // Last bucket includes its max
+  if(pulls?.length&&buckets.length>0){
+    const lastIdx=buckets.length-1;
+    pullCounts[lastIdx]=pulls.filter(p=>{
+      const v=Number(p.value_usd)||0;
+      return v>=buckets[lastIdx].minValueUsd;
+    }).length;
+  }
+
   return(
     <div className="odds-section">
       <div className="section-hdr"><span>Odds Breakdown</span><span className="profit-zone">{profitPct.toFixed(1)}% profit zone</span></div>
       {buckets.map((b,i)=>{
         const pct=b.oddsPercent||0;
-        const tier=b.tier||'common';
+        const tier=displayTier(b.tier||'common',i,n);
         const mid=((b.minValueUsd||0)+(b.maxValueUsd||0))/2;
+        const pc=pullCounts[i];
         return(<div key={i} className="odds-row">
           <div className="odds-top">
             <span style={{color:TIER_COLORS[tier]||'#6B7280',fontWeight:600,textTransform:'capitalize'}}>{tier}</span>
@@ -76,7 +123,7 @@ function OddsBreakdown({odds,price}){
             <span className="dim" style={{marginLeft:'auto'}}>{pct.toFixed(1)}%</span>
           </div>
           <div className="bar-bg"><div className="bar-fill" style={{width:`${(pct/maxPct)*100}%`,background:TIER_COLORS[tier]||'#6B7280'}}/></div>
-          <div className="odds-mid">mid: ${mid.toFixed(2)}</div>
+          <div className="odds-mid">mid: ${mid.toFixed(2)}{pulls?.length>0?` · ${pc} pulled`:''}</div>
         </div>);
       })}
       <div className="pl-section"><div className="pl-bar"><div className="pl-loss" style={{width:`${100-profitPct}%`}}/><div className="pl-win"/></div>
@@ -85,14 +132,15 @@ function OddsBreakdown({odds,price}){
   );
 }
 
-function PullItem({pull,packTitle,onPackClick}){
+function PullItem({pull,packTitle,onPackClick,odds}){
+  const tier = odds ? displayPullTier(pull.tier, odds) : pull.tier;
   return(
     <div className="pull-item" onClick={()=>onPackClick?.(pull.pack_id)}>
       {pull.image_url?<img src={pull.image_url} alt="" className="pull-img"/>:<div className="pull-img-ph"/>}
       <div className="pull-info">
         <div className="pull-title">{pull.title}</div>
         <div className="pull-meta">
-          <span className="pull-tier" style={{background:TIER_COLORS[pull.tier]||'#6B7280'}}>{pull.tier}</span>
+          <span className="pull-tier" style={{background:TIER_COLORS[tier]||'#6B7280'}}>{tier}</span>
           {pull.buyback_usd!=null&&Number(pull.buyback_usd)>0&&<span className="pull-fmv">${Number(pull.buyback_usd).toFixed(2)}</span>}
           <span className="pull-time">{timeAgo(pull.detected_at)}</span>
         </div>
@@ -118,6 +166,7 @@ export default function App(){
 
   const packTitleMap=useMemo(()=>{const m={};packs.forEach(p=>{m[p.id]=p.title;});return m;},[packs]);
   const packCatMap=useMemo(()=>{const m={};packs.forEach(p=>{m[p.id]=p.category;});return m;},[packs]);
+  const packOddsMap=useMemo(()=>{const m={};packs.forEach(p=>{m[p.id]=p.odds;});return m;},[packs]);
 
   const fetchData=useCallback(async()=>{
     try{
@@ -256,7 +305,7 @@ export default function App(){
               <div className="det-left">
                 <div className="det-pulls">
                   <div className="section-hdr"><div className="feed-t"><span>🔥</span> Just Pulled</div><div className="live-sm"><span className="dot-sm"/><span>live</span></div></div>
-                  <div className="det-pull-list">{packPulls.length===0?<div className="empty-p">Monitoring for pulls...</div>:packPulls.map(p=><PullItem key={p.id} pull={p}/>)}</div>
+                  <div className="det-pull-list">{packPulls.length===0?<div className="empty-p">Monitoring for pulls...</div>:packPulls.map(p=><PullItem key={p.id} pull={p} odds={sel.odds}/>)}</div>
                 </div>
               </div>
               <div className="det-right">
@@ -267,7 +316,7 @@ export default function App(){
                   </div>
                   <div className="chart-wrap"><EVChart snapshots={snapshots[sel.id]||[]} timeRange={chartRange}/></div>
                 </div>
-                <OddsBreakdown odds={sel.odds} price={Number(sel.price_usd)}/>
+                <OddsBreakdown odds={sel.odds} price={Number(sel.price_usd)} pulls={packPulls}/>
               </div>
             </div>
           </div>
@@ -284,7 +333,7 @@ export default function App(){
                 <div key={p.id} className="row" onClick={()=>setSelectedId(p.id)}>
                   <span className="c1">#{i+1}</span>
                   <div className="c2"><div className="rn">{p.title}</div><div className="rm"><span className="cd" style={{background:CATEGORY_COLORS[p.category]||'#666'}}/><span className="dim">CY</span>{p.out_of_stock&&<span className="oos">OOS</span>}</div></div>
-                  <div className="c3"><span className="ev-n">{p.evRatio.toFixed(3)}</span><Sparkline data={(snapshots[p.id]||[]).map(s=>Number(s.effective_ev_ratio))} width={40} height={16} color={p.evRatio>=1?'#22C55E':'#EF4444'}/></div>
+                  <div className="c3"><span className="ev-n">{p.evRatio.toFixed(3)}</span><Sparkline data={(snapshots[p.id]||[]).map(s=>Number(s.effective_ev_ratio))} width={40} height={16} color={p.evRatio>=1?'#059669':'#DC2626'}/></div>
                   <span className="c4">${Number(p.price_usd).toFixed(0)}</span>
                   <span className="c5 cy">${(p.evRatio*Number(p.price_usd)).toFixed(2)}</span>
                   <span className="c6">{p.totalPulls>0?p.totalPulls.toLocaleString():'—'}</span>
@@ -296,7 +345,7 @@ export default function App(){
           </div>
           <div className="feeds">
             <div className="feed-hdr"><div className="feed-t"><span>🔥</span> Just Pulled</div><div className="live-sm"><span className="dot-sm"/><span>live</span></div></div>
-            <div className="pull-list">{!filteredPulls.length?<div className="empty-p">Monitoring for pulls...</div>:filteredPulls.map(p=><PullItem key={p.id} pull={p} packTitle={packTitleMap[p.pack_id]} onPackClick={handlePullClick}/>)}</div>
+            <div className="pull-list">{!filteredPulls.length?<div className="empty-p">Monitoring for pulls...</div>:filteredPulls.map(p=><PullItem key={p.id} pull={p} packTitle={packTitleMap[p.pack_id]} onPackClick={handlePullClick} odds={packOddsMap[p.pack_id]}/>)}</div>
           </div>
         </div>
       )}
