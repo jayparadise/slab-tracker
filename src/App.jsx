@@ -178,7 +178,7 @@ export default function App(){
         supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,calibrated_ev_usd,inventory_count,out_of_stock,polled_at,price_usd,real_avg_pull_value,total_cumulative_pulls').order('polled_at',{ascending:false}).limit(200),
         // Chart history: last 24h, sampled down. Use range to get more rows for charts.
         supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,polled_at').gte('polled_at',new Date(Date.now()-24*3600000).toISOString()).order('polled_at',{ascending:true}).limit(10000),
-        supabase.from('pulls').select('*').order('detected_at',{ascending:false}).limit(50),
+        supabase.from('pulls').select('*').order('detected_at',{ascending:false}).limit(100),
       ]);
       if(pd){
         // Build latest map from most recent snapshots (first occurrence per pack in desc order)
@@ -218,7 +218,7 @@ export default function App(){
 
   useEffect(()=>{
     if(!selectedId){setPackPulls([]);return;}
-    const f=async()=>{const{data}=await supabase.from('pulls').select('*').eq('pack_id',selectedId).order('detected_at',{ascending:false}).limit(50);if(data)setPackPulls(data);};
+    const f=async()=>{const{data}=await supabase.from('pulls').select('*').eq('pack_id',selectedId).order('detected_at',{ascending:false}).limit(100);if(data)setPackPulls(data);};
     f();const iv=setInterval(f,5000);return()=>clearInterval(iv);
   },[selectedId]);
 
@@ -334,7 +334,7 @@ export default function App(){
               {filtered.map((p,i)=>(
                 <div key={p.id} className="row" onClick={()=>setSelectedId(p.id)}>
                   <span className="c1">#{i+1}</span>
-                  <div className="c2"><div className="rn">{p.title}</div><div className="rm"><span className="cd" style={{background:CATEGORY_COLORS[p.category]||'#666'}}/><span className="dim">CY</span>{p.out_of_stock&&<span className="oos">OOS</span>}</div></div>
+                  <div className="c2"><div className="rn">{p.title}</div>{p.out_of_stock&&<div className="rm"><span className="oos">OUT OF STOCK</span></div>}</div>
                   <div className="c3"><span className="ev-n">{p.evRatio.toFixed(3)}</span><Sparkline data={(snapshots[p.id]||[]).map(s=>Number(s.effective_ev_ratio))} width={40} height={16} color={p.evRatio>=1?'#334155':'#DC2626'}/></div>
                   <span className="c4">${Number(p.price_usd).toFixed(0)}</span>
                   <span className="c5 cy">${(p.evRatio*Number(p.price_usd)).toFixed(2)}</span>
