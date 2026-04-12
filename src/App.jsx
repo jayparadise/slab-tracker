@@ -117,14 +117,18 @@ export default function App(){
 
   const fetchData=useCallback(async()=>{
     try{
-      const[{data:pd},{data:sd},{data:pld}]=await Promise.all([
+      const[{data:pd},{data:latestSnaps},{data:chartSnaps},{data:pld}]=await Promise.all([
         supabase.from('pack_config').select('*').eq('active',true),
-        supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,calibrated_ev_usd,inventory_count,out_of_stock,polled_at,price_usd,real_avg_pull_value,total_cumulative_pulls').gte('polled_at',new Date(Date.now()-24*3600000).toISOString()).order('polled_at',{ascending:true}),
+        // Latest snapshots: descending, limit 200 covers all ~58 packs' most recent poll
+        supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,calibrated_ev_usd,inventory_count,out_of_stock,polled_at,price_usd,real_avg_pull_value,total_cumulative_pulls').order('polled_at',{ascending:false}).limit(200),
+        // Chart history: last 24h, sampled down. Use range to get more rows for charts.
+        supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,polled_at').gte('polled_at',new Date(Date.now()-24*3600000).toISOString()).order('polled_at',{ascending:true}).limit(10000),
         supabase.from('pulls').select('*').order('detected_at',{ascending:false}).limit(50),
       ]);
       if(pd){
+        // Build latest map from most recent snapshots (first occurrence per pack in desc order)
         const latest={};
-        for(const s of sd||[])latest[s.pack_id]=s;
+        for(const s of latestSnaps||[]){if(!latest[s.pack_id])latest[s.pack_id]=s;}
         setPacks(pd.map(p=>{
           const snap=latest[p.id];
           const r=snap?Number(snap.effective_ev_ratio):0;
@@ -133,7 +137,7 @@ export default function App(){
           return{...p,evRatio:r,signal:getValueSignal(r),realAvgPull:avgPull,totalPulls:totalP};
         }));
       }
-      if(sd){const g={};for(const s of sd){if(!g[s.pack_id])g[s.pack_id]=[];g[s.pack_id].push(s);}setSnapshots(g);}
+      if(chartSnaps){const g={};for(const s of chartSnaps){if(!g[s.pack_id])g[s.pack_id]=[];g[s.pack_id].push(s);}setSnapshots(g);}
       if(pld)setPulls(pld);
       setLastPolled(new Date());
       setIsLive(true);
