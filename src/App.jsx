@@ -228,14 +228,10 @@ export default function App(){
   },[fetchData,triggerPoll]);
 
   useEffect(()=>{
-    if(!selectedId){setPackPulls([]);setSnapshots({});return;}
+    if(!selectedId){setPackPulls([]);return;}
     const f=async()=>{
-      const[{data:pullData},{data:chartData}]=await Promise.all([
-        supabase.from('pulls').select('*').eq('pack_id',selectedId).order('detected_at',{ascending:false}).limit(100),
-        supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,polled_at').eq('pack_id',selectedId).gte('polled_at',new Date(Date.now()-24*3600000).toISOString()).order('polled_at',{ascending:true}).limit(1000),
-      ]);
-      if(pullData)setPackPulls(pullData);
-      if(chartData)setSnapshots(prev=>({...prev,[selectedId]:chartData}));
+      const{data}=await supabase.from('pulls').select('*').eq('pack_id',selectedId).order('detected_at',{ascending:false}).limit(100);
+      if(data)setPackPulls(data);
     };
     f();const iv=setInterval(f,5000);return()=>clearInterval(iv);
   },[selectedId]);
@@ -322,12 +318,7 @@ export default function App(){
                 <div className="det-pulls">
                   <div className="section-hdr"><div className="feed-t"><span>🔥</span> Just Pulled</div><div className="live-sm"><span className="dot-sm"/><span>live</span></div></div>
                   <div className="det-pull-list">{packPulls.length===0?<div className="empty-p">Monitoring for pulls...</div>:packPulls.map(p=>{
-                    // Find EV ratio at the time of this pull
-                    const pullTime=new Date(p.detected_at).getTime();
-                    const snaps=snapshots[sel.id]||[];
-                    let evAtPull=null;
-                    for(const s of snaps){if(new Date(s.polled_at).getTime()<=pullTime)evAtPull=Number(s.effective_ev_ratio);else break;}
-                    if(!evAtPull&&snaps.length)evAtPull=Number(snaps[0]?.effective_ev_ratio);
+                    const evAtPull=p.ev_at_pull?Number(p.ev_at_pull):null;
                     return <PullItem key={p.id} pull={p} odds={sel.odds} evAtPull={evAtPull}/>;
                   })}</div>
                 </div>
