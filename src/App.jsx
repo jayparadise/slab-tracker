@@ -160,6 +160,7 @@ export default function App(){
   const[catFilter,setCatFilter]=useState('ALL');
   const[section,setSection]=useState('ALL'); // ALL, SPORTS, COLLECTIBLES
   const[sortBy,setSortBy]=useState('ev');
+  const[sortDir,setSortDir]=useState('desc');
   const[lastPolled,setLastPolled]=useState(null);
   const[isLive,setIsLive]=useState(false);
   const[pollInfo,setPollInfo]=useState('');
@@ -247,9 +248,21 @@ export default function App(){
   const filtered=useMemo(()=>{
     let l=catFilter==='ALL'?sectionPacks:sectionPacks.filter(p=>p.category===catFilter);
     l=l.filter(p=>p.evRatio>0);
-    l.sort((a,b)=>sortBy==='ev'?b.evRatio-a.evRatio:Number(a.price_usd)-Number(b.price_usd));
+    const dir=sortDir==='desc'?-1:1;
+    l.sort((a,b)=>{
+      let va,vb;
+      switch(sortBy){
+        case'ev':va=a.evRatio;vb=b.evRatio;break;
+        case'price':va=Number(a.price_usd);vb=Number(b.price_usd);break;
+        case'trend':va=a.evTrend;vb=b.evTrend;break;
+        case'pulls':va=a.totalPulls;vb=b.totalPulls;break;
+        case'lastpull':va=a.lastPullAt?new Date(a.lastPullAt).getTime():0;vb=b.lastPullAt?new Date(b.lastPullAt).getTime():0;break;
+        default:va=a.evRatio;vb=b.evRatio;
+      }
+      return(va-vb)*dir;
+    });
     return l;
-  },[sectionPacks,catFilter,sortBy]);
+  },[sectionPacks,catFilter,sortBy,sortDir]);
 
   const filteredPulls=useMemo(()=>{
     if(section==='ALL')return pulls;
@@ -260,6 +273,8 @@ export default function App(){
   const best=filtered[0];
   const handlePullClick=useCallback((pid)=>{if(pid)setSelectedId(pid);},[]);
   const handleSection=useCallback((s)=>{setSection(s);setCatFilter('ALL');},[]);
+  const handleSort=useCallback((col)=>{if(sortBy===col)setSortDir(d=>d==='desc'?'asc':'desc');else{setSortBy(col);setSortDir('desc');}},[sortBy]);
+  const sortArrow=(col)=>sortBy===col?(sortDir==='desc'?' ▾':' ▴'):'';
 
   const sportCount=packs.filter(p=>p.evRatio>0&&isSports(p.category)).length;
   const collectCount=packs.filter(p=>p.evRatio>0&&!isSports(p.category)).length;
@@ -326,8 +341,8 @@ export default function App(){
       {!sel&&(
         <div className="main">
           <div className="pack-list">
-            <div className="list-hdr"><span>{section==='ALL'?'All Packs':section==='SPORTS'?'Sports Packs':'Collectible Packs'}</span><div className="sorts"><button className={`sb ${sortBy==='ev'?'ac':''}`} onClick={()=>setSortBy('ev')}>EV Ratio</button><button className={`sb ${sortBy==='price'?'ac':''}`} onClick={()=>setSortBy('price')}>Price</button></div></div>
-            <div className="tbl-hdr"><span className="c1">#</span><span className="c2">PACK</span><span className="c3">EV RATIO</span><span className="c4">PRICE</span><span className="c5">TREND</span><span className="c6">PULLS</span><span className="c7">SIGNAL</span><span className="c8">LAST PULL</span></div>
+            <div className="list-hdr"><span>{section==='ALL'?'All Packs':section==='SPORTS'?'Sports Packs':'Collectible Packs'}</span></div>
+            <div className="tbl-hdr"><span className="c1">#</span><span className="c2">PACK</span><span className="c3 sortable" onClick={()=>handleSort('ev')}>EV RATIO{sortArrow('ev')}</span><span className="c4 sortable" onClick={()=>handleSort('price')}>PRICE{sortArrow('price')}</span><span className="c5 sortable" onClick={()=>handleSort('trend')}>TREND{sortArrow('trend')}</span><span className="c6 sortable" onClick={()=>handleSort('pulls')}>PULLS{sortArrow('pulls')}</span><span className="c7">SIGNAL</span><span className="c8 sortable" onClick={()=>handleSort('lastpull')}>LAST PULL{sortArrow('lastpull')}</span></div>
             <div className="rows">
               {filtered.map((p,i)=>(
                 <div key={p.id} className="row" onClick={()=>setSelectedId(p.id)}>
