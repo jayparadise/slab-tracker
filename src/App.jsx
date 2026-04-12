@@ -188,6 +188,10 @@ export default function App(){
         const latest={};
         for(const s of latestSnaps||[]){if(!latest[s.pack_id])latest[s.pack_id]=s;}
         
+        // Build last pull time per pack
+        const lastPullMap={};
+        for(const pl of pld||[]){if(!lastPullMap[pl.pack_id])lastPullMap[pl.pack_id]=pl.detected_at;}
+        
         setPacks(pd.map(p=>{
           const snap=latest[p.id];
           const r=snap?Number(snap.effective_ev_ratio):0;
@@ -206,7 +210,7 @@ export default function App(){
             if(oldEv>0)evTrend=currentEv-oldEv;
           }
           
-          return{...p,evRatio:r,signal:getValueSignal(r),realAvgPull:avgPull,totalPulls:totalP,evTrend};
+          return{...p,evRatio:r,signal:getValueSignal(r),realAvgPull:avgPull,totalPulls:totalP,evTrend,lastPullAt:lastPullMap[p.id]||null};
         }));
         setSnapshots(snapGroups);
       }else{
@@ -290,24 +294,6 @@ export default function App(){
         {Object.entries(categories).sort().map(([c,n])=><button key={c} className={`cb ${catFilter===c?'ac':''}`} onClick={()=>setCatFilter(c)}>{c.toUpperCase().replace(/-/g,' ')} {n}</button>)}
       </div>
 
-      {best&&!sel&&(
-        <div className="hero">
-          <div className="hero-lbl">🔥 BEST VALUE RIGHT NOW</div>
-          <div className="hero-card" onClick={()=>setSelectedId(best.id)} style={{borderColor:`${CATEGORY_COLORS[best.category]||'#333'}44`}}>
-            <div className="hero-top">
-              <div><div className="hero-title">{best.title}</div><div className="hero-sigs"><span className="sig" style={{color:best.signal.color,background:best.signal.bg}}>{best.signal.label}</span><span className="dim">${Number(best.price_usd).toFixed(0)} per pull</span></div></div>
-              <div className="hero-ev"><div className="hero-ev-n">{best.evRatio.toFixed(3)}</div><div className="hero-ev-l">EV RATIO</div></div>
-            </div>
-            <div className="sg">
-              <div className="sc"><div className="sl">PACK PRICE</div><div className="sv">${Number(best.price_usd).toFixed(0)}</div></div>
-              <div className="sc"><div className="sl">CALIBRATED EV</div><div className="sv cy">${(best.evRatio*Number(best.price_usd)).toFixed(2)}</div></div>
-              <div className="sc"><div className="sl">REAL AVG PULL</div><div className="sv">{best.realAvgPull>0?`$${best.realAvgPull.toFixed(2)}`:'—'}</div></div>
-              <div className="sc"><div className="sl">TOTAL PULLS</div><div className="sv">{best.totalPulls>0?best.totalPulls.toLocaleString():'—'}</div></div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {sel&&(
         <div className="detail">
           <button className="back" onClick={()=>setSelectedId(null)}>← Back to all packs</button>
@@ -348,7 +334,7 @@ export default function App(){
         <div className="main">
           <div className="pack-list">
             <div className="list-hdr"><span>{section==='ALL'?'All Packs':section==='SPORTS'?'Sports Packs':'Collectible Packs'}</span><div className="sorts"><button className={`sb ${sortBy==='ev'?'ac':''}`} onClick={()=>setSortBy('ev')}>EV Ratio</button><button className={`sb ${sortBy==='price'?'ac':''}`} onClick={()=>setSortBy('price')}>Price</button></div></div>
-            <div className="tbl-hdr"><span className="c1">#</span><span className="c2">PACK</span><span className="c3">EV RATIO</span><span className="c4">PRICE</span><span className="c5">TREND</span><span className="c6">PULLS</span><span className="c7">SIGNAL</span></div>
+            <div className="tbl-hdr"><span className="c1">#</span><span className="c2">PACK</span><span className="c3">EV RATIO</span><span className="c4">PRICE</span><span className="c5">TREND</span><span className="c6">PULLS</span><span className="c7">SIGNAL</span><span className="c8">LAST PULL</span></div>
             <div className="rows">
               {filtered.map((p,i)=>(
                 <div key={p.id} className="row" onClick={()=>setSelectedId(p.id)}>
@@ -356,9 +342,10 @@ export default function App(){
                   <div className="c2"><div className="rn">{p.title}</div>{p.out_of_stock&&<div className="rm"><span className="oos">OUT OF STOCK</span></div>}</div>
                   <div className="c3"><span className="ev-n">{p.evRatio.toFixed(3)}</span><Sparkline data={(snapshots[p.id]||[]).map(s=>Number(s.effective_ev_ratio))} width={40} height={16} color={p.evRatio>=1?'#334155':'#DC2626'}/></div>
                   <span className="c4">${Number(p.price_usd).toFixed(0)}</span>
-                  <span className={`c5 trend ${p.evTrend>=0.10?'up':p.evTrend<=-0.10?'down':'flat'}`}>{p.evTrend>=0.10?'▲':p.evTrend<=-0.10?'▼':'—'}{Math.abs(p.evTrend)>=0.01?` ${p.evTrend>0?'+':''}${p.evTrend.toFixed(2)}`:''}</span>
+                  <span className="c5" style={{fontWeight:600,color:p.evTrend>=0.10?'#16A34A':p.evTrend<=-0.10?'#DC2626':'#78716C'}}>{p.evTrend>=0.10?'▲':p.evTrend<=-0.10?'▼':'—'}{Math.abs(p.evTrend)>=0.01?` ${p.evTrend>0?'+':''}${p.evTrend.toFixed(2)}`:''}</span>
                   <span className="c6">{p.totalPulls>0?p.totalPulls.toLocaleString():'—'}</span>
                   <span className="c7"><span className="sig-sm" style={{color:p.signal.color,background:p.signal.bg}}>{p.signal.label}</span></span>
+                  <span className="c8">{p.lastPullAt?timeAgo(p.lastPullAt):'—'}</span>
                 </div>
               ))}
               {!filtered.length&&<div className="empty">Loading packs...</div>}
