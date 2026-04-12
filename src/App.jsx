@@ -6,7 +6,8 @@ const CATEGORY_COLORS = {
   football: '#CF2B1F', baseball: '#1E5C3A', basketball: '#F58426',
   pokemon: '#FFCB05', sports: '#3B82F6', 'one-piece': '#E4002B',
   other: '#8B5CF6', comic: '#A855F7', mtg: '#6B21A8', watch: '#D4AF37',
-  soccer: '#22C55E',
+  soccer: '#22C55E', hockey: '#A5ACAF', wildcard: '#EC4899',
+  watches: '#D4AF37', limited_drop: '#F97316', booster: '#8B5CF6',
 };
 
 function getValueSignal(ratio) {
@@ -57,18 +58,33 @@ function EVChart({ snapshots }) {
 function OddsBreakdown({ odds, price }) {
   if (!odds?.buckets) return null;
   const tc = { base: '#6B7280', common: '#22C55E', uncommon: '#3B82F6', rare: '#A855F7', epic: '#F59E0B', chase: '#EF4444' };
-  const maxPct = Math.max(...odds.buckets.map(b => b.oddsPercent));
-  const profitPct = odds.buckets.filter(b => b.minValueUsd >= price).reduce((s, b) => s + b.oddsPercent, 0);
+  const buckets = odds.bucketDetails || odds.buckets;
+  const maxPct = Math.max(...buckets.map(b => b.oddsPercent || b.percent || 0));
+  const profitPct = buckets.filter(b => (b.minValueUsd || 0) >= price || (b.rawMidpoint || 0) >= price).reduce((s, b) => s + (b.oddsPercent || b.percent || 0), 0);
   return (
     <div className="odds-section">
       <div className="section-hdr"><span>Calibrated Odds</span><span className="profit-zone">{profitPct.toFixed(1)}% profit zone</span></div>
-      {odds.buckets.map((b, i) => (
-        <div key={i} className="odds-row">
-          <div className="odds-top"><span style={{ color: tc[b.tier], fontWeight: 600, textTransform: 'capitalize' }}>{b.tier}</span><span className="dim">${b.minValueUsd}-${b.maxValueUsd}</span><span className="dim" style={{ marginLeft: 'auto' }}>{b.oddsPercent}%</span></div>
-          <div className="bar-bg"><div className="bar-fill" style={{ width: `${(b.oddsPercent / maxPct) * 100}%`, background: tc[b.tier] }} /></div>
-          <div className="odds-mid">mid: ${((b.minValueUsd + b.maxValueUsd) / 2).toFixed(2)}</div>
-        </div>
-      ))}
+      {buckets.map((b, i) => {
+        const pct = b.oddsPercent || b.percent || 0;
+        const tier = b.tier || b.t || 'common';
+        const label = b.label || `$${b.minValueUsd}-$${b.maxValueUsd}`;
+        const mid = b.calibratedMidpoint || b.rawMidpoint || ((b.minValueUsd + b.maxValueUsd) / 2);
+        const pullCount = b.pullCount;
+        return (
+          <div key={i} className="odds-row">
+            <div className="odds-top">
+              <span style={{ color: tc[tier], fontWeight: 600, textTransform: 'capitalize' }}>{tier}</span>
+              <span className="dim">{label}</span>
+              <span className="dim" style={{ marginLeft: 'auto' }}>{pct}%</span>
+            </div>
+            <div className="bar-bg"><div className="bar-fill" style={{ width: `${(pct / maxPct) * 100}%`, background: tc[tier] }} /></div>
+            <div className="odds-mid">
+              mid: ${mid?.toFixed(2)}
+              {pullCount != null && ` (${pullCount} pulls)`}
+            </div>
+          </div>
+        );
+      })}
       <div className="pl-section">
         <div className="pl-bar"><div className="pl-loss" style={{ width: `${100 - profitPct}%` }} /><div className="pl-win" /></div>
         <div className="pl-labels"><span>Loss / Break-even ({(100 - profitPct).toFixed(1)}%)</span><span>Profit ({profitPct.toFixed(1)}%)</span></div>
@@ -77,18 +93,19 @@ function OddsBreakdown({ odds, price }) {
   );
 }
 
-function PullItem({ pull }) {
+function PullItem({ pull, packTitle, onPackClick }) {
   const tc = { base: '#6B7280', common: '#22C55E', uncommon: '#3B82F6', rare: '#A855F7', epic: '#F59E0B', chase: '#EF4444' };
   return (
-    <div className="pull-item">
+    <div className="pull-item" onClick={() => onPackClick && onPackClick(pull.pack_id)} style={{ cursor: onPackClick ? 'pointer' : 'default' }}>
       {pull.image_url ? <img src={pull.image_url} alt="" className="pull-img" /> : <div className="pull-img-ph" />}
       <div className="pull-info">
         <div className="pull-title">{pull.title}</div>
         <div className="pull-meta">
           <span className="pull-tier" style={{ background: tc[pull.tier] || '#22C55E' }}>{pull.tier}</span>
-          {pull.buyback_usd && <span className="pull-fmv">${pull.buyback_usd.toFixed(2)}</span>}
+          {pull.buyback_usd && <span className="pull-fmv">${Number(pull.buyback_usd).toFixed(2)}</span>}
           <span className="pull-time">{timeAgo(pull.detected_at)}</span>
         </div>
+        {packTitle && <div className="pull-pack-name">{packTitle}</div>}
       </div>
     </div>
   );
@@ -106,27 +123,33 @@ export default function App() {
   const [pollInfo, setPollInfo] = useState('');
   const [packPulls, setPackPulls] = useState([]);
   const tickRef = useRef(0);
+  const lastPollTrigger = useRef(0);
 
-  function calcEV(pack) {
-    if (!pack.odds?.buckets?.length || !pack.price_usd) return 0;
-    let ev = 0;
-    for (const b of pack.odds.buckets) ev += ((b.minValueUsd + b.maxValueUsd) / 2) * (b.oddsPercent / 100);
-    return ev / Number(pack.price_usd);
-  }
+  // Pack ID -> title lookup
+  const packTitleMap = useMemo(() => {
+    const m = {};
+    packs.forEach(p => { m[p.id] = p.title; });
+    return m;
+  }, [packs]);
 
   const fetchData = useCallback(async () => {
     try {
       const [{ data: pd }, { data: sd }, { data: pld }] = await Promise.all([
         supabase.from('pack_config').select('*').eq('active', true),
-        supabase.from('live_snapshots').select('pack_id, effective_ev_ratio, calibrated_ev_usd, inventory_count, out_of_stock, polled_at, price_usd').gte('polled_at', new Date(Date.now() - 2 * 3600000).toISOString()).order('polled_at', { ascending: true }),
+        supabase.from('live_snapshots').select('pack_id, effective_ev_ratio, calibrated_ev_usd, inventory_count, out_of_stock, polled_at, price_usd, real_avg_pull_value, total_cumulative_pulls').gte('polled_at', new Date(Date.now() - 2 * 3600000).toISOString()).order('polled_at', { ascending: true }),
         supabase.from('pulls').select('*').order('detected_at', { ascending: false }).limit(50),
       ]);
       if (pd) {
         const latest = {};
         for (const s of sd || []) latest[s.pack_id] = s;
         setPacks(pd.map(p => {
-          const r = latest[p.id] ? Number(latest[p.id].effective_ev_ratio) : calcEV(p);
-          return { ...p, evRatio: r, signal: getValueSignal(r) };
+          const snap = latest[p.id];
+          const r = snap ? Number(snap.effective_ev_ratio) : 0;
+          return {
+            ...p, evRatio: r, signal: getValueSignal(r),
+            realAvgPull: snap ? Number(snap.real_avg_pull_value) : 0,
+            totalPulls: snap ? Number(snap.total_cumulative_pulls) : 0,
+          };
         }));
       }
       if (sd) {
@@ -145,7 +168,7 @@ export default function App() {
       setPollInfo('polling...');
       const r = await fetch(POLL_FUNCTION_URL, { method: 'POST' });
       const d = await r.json();
-      setPollInfo(`${d.packs}p | ${d.pulls} pulls`);
+      setPollInfo(`${d.pulldHits || 0}/${d.packs}p synced | ${d.pulls} new pulls`);
       tickRef.current++;
       await fetchData();
     } catch { setPollInfo('error'); }
@@ -153,8 +176,12 @@ export default function App() {
 
   useEffect(() => {
     fetchData();
-    const a = setInterval(triggerPoll, 5000);
-    return () => clearInterval(a);
+    // Poll edge function every 15s (not 5s — too aggressive for 61 pack fetches)
+    triggerPoll();
+    const pollTimer = setInterval(triggerPoll, 15000);
+    // Refresh UI from Supabase every 5s
+    const uiTimer = setInterval(fetchData, 5000);
+    return () => { clearInterval(pollTimer); clearInterval(uiTimer); };
   }, [fetchData, triggerPoll]);
 
   // Fetch pulls for selected pack
@@ -162,8 +189,7 @@ export default function App() {
     if (!selectedId) { setPackPulls([]); return; }
     const fetchPackPulls = async () => {
       const { data } = await supabase
-        .from('pulls')
-        .select('*')
+        .from('pulls').select('*')
         .eq('pack_id', selectedId)
         .order('detected_at', { ascending: false })
         .limit(50);
@@ -189,6 +215,10 @@ export default function App() {
 
   const sel = packs.find(p => p.id === selectedId);
   const best = filtered[0];
+
+  const handlePullClick = useCallback((packId) => {
+    if (packId) setSelectedId(packId);
+  }, []);
 
   return (
     <div className="app">
@@ -221,9 +251,9 @@ export default function App() {
             <div className="sg">
               <div className="sc"><div className="sl">PACK PRICE</div><div className="sv">${Number(best.price_usd).toFixed(0)}</div></div>
               <div className="sc"><div className="sl">CALIBRATED EV</div><div className="sv cy">${(best.evRatio * Number(best.price_usd)).toFixed(2)}</div></div>
-              <div className="sc"><div className="sl">AVG PULL VALUE</div><div className="sv">${(best.evRatio * Number(best.price_usd)).toFixed(2)}</div>
-                <div className={`sd ${best.evRatio >= 1 ? 'pos' : 'neg'}`}>{best.evRatio >= 1 ? '+' : ''}${((best.evRatio - 1) * Number(best.price_usd)).toFixed(2)} vs price</div></div>
-              <div className="sc"><div className="sl">INVENTORY</div><div className="sv">{best.inventory_count || '?'}</div></div>
+              <div className="sc"><div className="sl">REAL AVG PULL</div><div className="sv">${best.realAvgPull ? best.realAvgPull.toFixed(2) : '—'}</div>
+                {best.realAvgPull > 0 && <div className={`sd ${best.realAvgPull >= Number(best.price_usd) ? 'pos' : 'neg'}`}>{best.realAvgPull >= Number(best.price_usd) ? '+' : ''}${(best.realAvgPull - Number(best.price_usd)).toFixed(2)} vs price</div>}</div>
+              <div className="sc"><div className="sl">TOTAL PULLS</div><div className="sv">{best.totalPulls ? best.totalPulls.toLocaleString() : '—'}</div></div>
             </div>
           </div>
         </div>
@@ -240,8 +270,9 @@ export default function App() {
             <div className="sg">
               <div className="sc"><div className="sl">PACK PRICE</div><div className="sv">${Number(sel.price_usd).toFixed(0)}</div></div>
               <div className="sc"><div className="sl">CALIBRATED EV</div><div className="sv cy">${(sel.evRatio * Number(sel.price_usd)).toFixed(2)}</div></div>
-              <div className="sc"><div className="sl">MIN CARD VALUE</div><div className="sv">${sel.odds?.minCardValueUsd || '?'}</div></div>
-              <div className="sc"><div className="sl">BUYBACK</div><div className="sv">{((sel.buyback_ratio || 0.9) * 100).toFixed(0)}%</div></div>
+              <div className="sc"><div className="sl">REAL AVG PULL</div><div className="sv">${sel.realAvgPull ? sel.realAvgPull.toFixed(2) : '—'}</div></div>
+              <div className="sc"><div className="sl">TOTAL PULLS</div><div className="sv">{sel.totalPulls ? sel.totalPulls.toLocaleString() : '—'}</div>
+                <div className="stat-sub">{sel.inventory_count} in inventory</div></div>
             </div>
             <div className="chart-sec">
               <div className="section-hdr"><span>EV Ratio</span><span className="cy">{sel.evRatio.toFixed(3)}</span></div>
@@ -249,7 +280,6 @@ export default function App() {
             </div>
             <OddsBreakdown odds={sel.odds} price={Number(sel.price_usd)} />
 
-            {/* Per-pack pull feed */}
             <div className="det-pulls">
               <div className="section-hdr">
                 <div className="feed-t"><span>🔥</span> Just Pulled</div>
@@ -271,7 +301,7 @@ export default function App() {
         <div className="main">
           <div className="pack-list">
             <div className="list-hdr"><span>All Packs</span><div className="sorts"><button className={`sb ${sortBy === 'ev' ? 'ac' : ''}`} onClick={() => setSortBy('ev')}>EV Ratio</button><button className={`sb ${sortBy === 'price' ? 'ac' : ''}`} onClick={() => setSortBy('price')}>Price</button></div></div>
-            <div className="tbl-hdr"><span className="c1">#</span><span className="c2">PACK</span><span className="c3">EV RATIO</span><span className="c4">PRICE</span><span className="c5">EV $</span><span className="c6">INV</span><span className="c7">SIGNAL</span></div>
+            <div className="tbl-hdr"><span className="c1">#</span><span className="c2">PACK</span><span className="c3">EV RATIO</span><span className="c4">PRICE</span><span className="c5">EV $</span><span className="c6">PULLS</span><span className="c7">SIGNAL</span></div>
             <div className="rows">
               {filtered.map((p, i) => (
                 <div key={p.id} className="row" onClick={() => setSelectedId(p.id)}>
@@ -280,7 +310,7 @@ export default function App() {
                   <div className="c3"><span className="ev-n">{p.evRatio.toFixed(3)}</span><Sparkline data={(snapshots[p.id] || []).map(s => Number(s.effective_ev_ratio))} width={40} height={16} color={p.evRatio >= 1 ? '#22C55E' : '#EF4444'} /></div>
                   <span className="c4">${Number(p.price_usd).toFixed(0)}</span>
                   <span className="c5 cy">${(p.evRatio * Number(p.price_usd)).toFixed(2)}</span>
-                  <span className="c6">{p.inventory_count || '?'}</span>
+                  <span className="c6">{p.totalPulls ? p.totalPulls.toLocaleString() : '—'}</span>
                   <span className="c7"><span className="sig-sm" style={{ color: p.signal.color, background: p.signal.bg }}>{p.signal.label}</span></span>
                 </div>
               ))}
@@ -290,7 +320,7 @@ export default function App() {
           <div className="feeds">
             <div className="feed-hdr"><div className="feed-t"><span>🔥</span> Just Pulled</div><div className="live-sm"><span className="dot-sm" /><span>live</span></div></div>
             <div className="pull-list">
-              {!pulls.length ? <div className="empty-p"><div>Monitoring for pulls...</div><div className="dim">Pulls detected when inventory changes between polls</div></div> : pulls.map(p => <PullItem key={p.id} pull={p} />)}
+              {!pulls.length ? <div className="empty-p"><div>Monitoring for pulls...</div></div> : pulls.map(p => <PullItem key={p.id} pull={p} packTitle={packTitleMap[p.pack_id]} onPackClick={handlePullClick} />)}
             </div>
           </div>
         </div>
