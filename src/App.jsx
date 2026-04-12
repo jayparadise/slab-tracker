@@ -87,13 +87,13 @@ function OddsBreakdown({ odds, price }) {
         const pct = b.oddsPercent || b.percent || 0;
         const tier = b.tier || 'common';
         const label = b.label || `$${b.minValueUsd}-$${b.maxValueUsd}`;
-        const mid = b.calibratedMidpoint || b.rawMidpoint || ((b.minValueUsd||0 + b.maxValueUsd||0) / 2);
+        const mid = b.calibratedMidpoint || b.rawMidpoint || (((b.minValueUsd || 0) + (b.maxValueUsd || 0)) / 2);
         return (
           <div key={i} className="odds-row">
             <div className="odds-top">
-              <span style={{ color: TIER_COLORS[tier] || '#6B7280', fontWeight: 600, textTransform: 'capitalize' }}>{tier}</span>
+              <span style={{ color: TIER_COLORS[tier] || '#6B7280', fontWeight: 600, textTransform: 'capitalize' }}>{tier === 'base' ? 'common' : tier}</span>
               <span className="dim">{label}</span>
-              <span className="dim" style={{ marginLeft: 'auto' }}>{pct}%</span>
+              <span className="dim" style={{ marginLeft: 'auto' }}>{Number(pct).toFixed(1)}%</span>
             </div>
             <div className="bar-bg"><div className="bar-fill" style={{ width: `${(pct / maxPct) * 100}%`, background: TIER_COLORS[tier] || '#6B7280' }} /></div>
             <div className="odds-mid">mid: ${mid?.toFixed?.(2) || mid}{b.pullCount != null ? ` (${b.pullCount} pulls)` : ''}</div>
@@ -179,7 +179,7 @@ export default function App() {
       setPollInfo('polling...');
       const r = await fetch(POLL_FUNCTION_URL, { method: 'POST' });
       const d = await r.json();
-      setPollInfo(`${d.pulldHits||0}/${d.packs}p | ${d.pulls} pulls`);
+      setPollInfo(`${d.packs}p | ${d.pulls} pulls`);
       tickRef.current++;
       await fetchData();
     } catch { setPollInfo('error'); }
@@ -188,9 +188,8 @@ export default function App() {
   useEffect(() => {
     fetchData();
     triggerPoll();
-    const pollTimer = setInterval(triggerPoll, 15000);
-    const uiTimer = setInterval(fetchData, 5000);
-    return () => { clearInterval(pollTimer); clearInterval(uiTimer); };
+    const pollTimer = setInterval(triggerPoll, 5000);
+    return () => { clearInterval(pollTimer); };
   }, [fetchData, triggerPoll]);
 
   useEffect(() => {
