@@ -181,18 +181,37 @@ export default function App(){
         supabase.from('pulls').select('*').order('detected_at',{ascending:false}).limit(100),
       ]);
       if(pd){
-        // Build latest map from most recent snapshots (first occurrence per pack in desc order)
+        // Group chart snapshots for trend calculation
+        const snapGroups={};
+        for(const s of chartSnaps||[]){if(!snapGroups[s.pack_id])snapGroups[s.pack_id]=[];snapGroups[s.pack_id].push(s);}
+        
         const latest={};
         for(const s of latestSnaps||[]){if(!latest[s.pack_id])latest[s.pack_id]=s;}
+        
         setPacks(pd.map(p=>{
           const snap=latest[p.id];
           const r=snap?Number(snap.effective_ev_ratio):0;
           const avgPull=snap?Number(snap.real_avg_pull_value||0):0;
           const totalP=snap?Number(snap.total_cumulative_pulls||0):0;
-          return{...p,evRatio:r,signal:getValueSignal(r),realAvgPull:avgPull,totalPulls:totalP};
+          
+          // Compute trend: current EV vs EV before last 10 pulls
+          let evTrend=0;
+          const history=snapGroups[p.id]||[];
+          if(history.length>10){
+            // Find how many snapshots ago corresponds to ~10 pulls back
+            // Use total_cumulative_pulls if available, otherwise compare oldest vs newest
+            const currentEv=r;
+            const tenPullsAgo=history.length>10?history[Math.max(0,history.length-11)]:history[0];
+            const oldEv=Number(tenPullsAgo.effective_ev_ratio);
+            if(oldEv>0)evTrend=currentEv-oldEv;
+          }
+          
+          return{...p,evRatio:r,signal:getValueSignal(r),realAvgPull:avgPull,totalPulls:totalP,evTrend};
         }));
+        setSnapshots(snapGroups);
+      }else{
+        if(chartSnaps){const g={};for(const s of chartSnaps){if(!g[s.pack_id])g[s.pack_id]=[];g[s.pack_id].push(s);}setSnapshots(g);}
       }
-      if(chartSnaps){const g={};for(const s of chartSnaps){if(!g[s.pack_id])g[s.pack_id]=[];g[s.pack_id].push(s);}setSnapshots(g);}
       if(pld)setPulls(pld);
       setLastPolled(new Date());
       setIsLive(true);
@@ -329,7 +348,7 @@ export default function App(){
         <div className="main">
           <div className="pack-list">
             <div className="list-hdr"><span>{section==='ALL'?'All Packs':section==='SPORTS'?'Sports Packs':'Collectible Packs'}</span><div className="sorts"><button className={`sb ${sortBy==='ev'?'ac':''}`} onClick={()=>setSortBy('ev')}>EV Ratio</button><button className={`sb ${sortBy==='price'?'ac':''}`} onClick={()=>setSortBy('price')}>Price</button></div></div>
-            <div className="tbl-hdr"><span className="c1">#</span><span className="c2">PACK</span><span className="c3">EV RATIO</span><span className="c4">PRICE</span><span className="c5">EV $</span><span className="c6">PULLS</span><span className="c7">SIGNAL</span></div>
+            <div className="tbl-hdr"><span className="c1">#</span><span className="c2">PACK</span><span className="c3">EV RATIO</span><span className="c4">PRICE</span><span className="c5">TREND</span><span className="c6">PULLS</span><span className="c7">SIGNAL</span></div>
             <div className="rows">
               {filtered.map((p,i)=>(
                 <div key={p.id} className="row" onClick={()=>setSelectedId(p.id)}>
@@ -337,7 +356,7 @@ export default function App(){
                   <div className="c2"><div className="rn">{p.title}</div>{p.out_of_stock&&<div className="rm"><span className="oos">OUT OF STOCK</span></div>}</div>
                   <div className="c3"><span className="ev-n">{p.evRatio.toFixed(3)}</span><Sparkline data={(snapshots[p.id]||[]).map(s=>Number(s.effective_ev_ratio))} width={40} height={16} color={p.evRatio>=1?'#334155':'#DC2626'}/></div>
                   <span className="c4">${Number(p.price_usd).toFixed(0)}</span>
-                  <span className="c5 cy">${(p.evRatio*Number(p.price_usd)).toFixed(2)}</span>
+                  <span className={`c5 trend ${p.evTrend>=0.10?'up':p.evTrend<=-0.10?'down':'flat'}`}>{p.evTrend>=0.10?'▲':p.evTrend<=-0.10?'▼':'—'}{Math.abs(p.evTrend)>=0.01?` ${p.evTrend>0?'+':''}${p.evTrend.toFixed(2)}`:''}</span>
                   <span className="c6">{p.totalPulls>0?p.totalPulls.toLocaleString():'—'}</span>
                   <span className="c7"><span className="sig-sm" style={{color:p.signal.color,background:p.signal.bg}}>{p.signal.label}</span></span>
                 </div>
