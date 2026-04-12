@@ -100,6 +100,10 @@ body { background: var(--bg); color: var(--text); font-family: 'Source Sans 3', 
 .ev-n { font-weight: 700; color: var(--accent); font-size: 13px; font-family: var(--mono); }
 .c4 { font-weight: 600; font-family: var(--mono); font-size: 12px; }
 .c5 { font-family: var(--mono); font-size: 12px; }
+.trend { font-weight: 600; }
+.trend.up { color: #16A34A; }
+.trend.down { color: #DC2626; }
+.trend.flat { color: var(--dim); }
 .c6 { color: var(--dim); font-size: 11px; }
 .rows { max-height: 65vh; overflow-y: auto; }
 .empty { padding: 40px; text-align: center; color: var(--dim); }
