@@ -1,8 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&display=swap');
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root { --bg: #0A0E14; --surface: rgba(255,255,255,0.02); --border: rgba(255,255,255,0.06); --text: #E5E7EB; --dim: rgba(255,255,255,0.4); --cyan: #22D3EE; }
-body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', 'SF Mono', monospace; font-size: 13px; }
-.app { min-height: 100vh; }
+body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', 'SF Mono', monospace; font-size: 13px; -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; }
+.app { min-height: 100vh; min-height: 100dvh; }
 
 /* HEADER */
 .header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.4); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 100; }
@@ -150,9 +150,67 @@ body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono',
 }
 @media (max-width: 900px) {
   .main { grid-template-columns: 1fr; }
-  .feeds { border-top: 1px solid var(--border); }
+  .feeds { border-top: 1px solid var(--border); max-height: 400px; }
   .sg { grid-template-columns: repeat(2, 1fr); }
   .tbl-hdr, .row { grid-template-columns: 30px 1fr 90px 60px 80px; }
   .c6, .c7 { display: none; }
   .tbl-hdr .c6, .tbl-hdr .c7 { display: none; }
+}
+@media (max-width: 600px) {
+  .header { padding: 10px 12px; gap: 6px; }
+  .h-left { gap: 8px; flex-wrap: wrap; }
+  .logo { font-size: 16px; }
+  .live-tag { font-size: 9px; }
+  .upd, .poll-info { font-size: 9px; }
+  .open-btn { padding: 6px 12px; font-size: 11px; }
+
+  .cat-bar { padding: 8px 12px; gap: 4px; }
+  .cb { padding: 4px 8px; font-size: 10px; }
+
+  .hero { padding: 12px; }
+  .hero-title { font-size: 14px; }
+  .hero-ev-n { font-size: 22px; }
+  .sg { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sc { padding: 8px; }
+  .sl { font-size: 8px; }
+  .sv { font-size: 14px; }
+
+  .detail { padding: 12px; }
+  .det-card { padding: 12px; }
+  .det-title { font-size: 16px; }
+  .det-ev-n { font-size: 24px; }
+  .det-split { grid-template-columns: 1fr; gap: 16px; }
+  .det-pull-list { max-height: 300px; }
+  .chart-wrap { padding: 8px; }
+
+  .main { grid-template-columns: 1fr; }
+  .pack-list { border-right: none; }
+  .tbl-hdr, .row { grid-template-columns: 24px 1fr 70px 50px; gap: 4px; padding: 8px 12px; font-size: 11px; }
+  .c5, .c6, .c7 { display: none; }
+  .tbl-hdr .c5, .tbl-hdr .c6, .tbl-hdr .c7 { display: none; }
+  .c2 .rn { font-size: 11px; }
+  .ev-n { font-size: 12px; }
+  .list-hdr { padding: 8px 12px; }
+  .rows { max-height: 50vh; }
+
+  .feeds { padding: 12px; border-top: 1px solid var(--border); max-height: 400px; }
+  .feed-t { font-size: 12px; }
+  .pull-item { padding: 6px 0; gap: 8px; }
+  .pull-img { width: 32px; height: 32px; }
+  .pull-title { font-size: 10px; }
+  .pull-meta { gap: 4px; }
+  .pull-tier { font-size: 8px; padding: 1px 4px; }
+  .pull-fmv { font-size: 10px; }
+  .pull-time { font-size: 9px; }
+  .pull-pack-name { font-size: 8px; }
+
+  .time-btns { gap: 1px; }
+  .time-btn { padding: 2px 5px; font-size: 9px; }
+  .section-hdr { font-size: 10px; }
+
+  .odds-row { margin-bottom: 8px; }
+  .odds-top { font-size: 10px; }
+  .odds-mid { font-size: 8px; }
+
+  .foot { padding: 10px 12px; font-size: 9px; }
 }
