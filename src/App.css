@@ -134,6 +134,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Source Sans 3', 
 .pull-fmv { font-size: 13px; font-weight: 700; color: var(--text); font-family: var(--mono); }
 .pull-time { font-size: 11px; color: var(--dim); }
 .pull-pack-name { font-size: 11px; color: var(--dim); margin-top: 1px; }
+.pull-ev { font-size: 12px; font-weight: 600; color: var(--dim); font-family: var(--mono); flex-shrink: 0; min-width: 50px; text-align: right; }
 .empty-p { padding: 40px 0; text-align: center; color: var(--dim); font-size: 13px; }
 
 .det-pulls { }
