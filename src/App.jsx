@@ -191,7 +191,7 @@ export default function App(){
     try{
       const[{data:pd},{data:latestSnaps},{data:pld}]=await Promise.all([
         supabase.from('pack_config').select('*').eq('active',true),
-        supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,calibrated_ev_usd,inventory_count,out_of_stock,polled_at,price_usd,real_avg_pull_value,total_cumulative_pulls,cold_streak').order('polled_at',{ascending:false}).limit(200),
+        supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,calibrated_ev_usd,inventory_count,out_of_stock,polled_at,price_usd,real_avg_pull_value,total_cumulative_pulls,cold_streak,rare_in_last_30').order('polled_at',{ascending:false}).limit(200),
         supabase.from('pulls').select('*').order('detected_at',{ascending:false}).limit(100),
       ]);
       if(pd){
@@ -220,7 +220,8 @@ export default function App(){
           const rareOdds = (p.odds?.buckets||[]).slice(2).reduce((s,b) => s + (b.oddsPercent||0), 0);
           const expectedInterval = rareOdds > 0 ? Math.round(100 / rareOdds) : 20;
           const serverStreak = snap ? Number(snap.cold_streak || 0) : 0;
-          const streak = serverStreak > 0 ? { sinceRare: serverStreak, expected: expectedInterval, rareOdds } : null;
+          const rareIn30 = snap ? Number(snap.rare_in_last_30 || 0) : 0;
+          const streak = serverStreak > 0 ? { sinceRare: serverStreak, expected: expectedInterval, rareOdds, rareIn30 } : null;
           return{...p,evRatio:r,signal:getValueSignal(r),realAvgPull:avgPull,totalPulls:totalP,evTrend,lastPullAt:lastPullMap[p.id]||null,streak};
         }));
       }
@@ -335,14 +336,21 @@ export default function App(){
             </div>
             {(()=>{
               const cs = getColdStreak(packPulls, sel.odds);
-              if (!cs || cs.sinceRare < 5) return null;
-              const hot = cs.sinceRare >= cs.expected * 1.5;
-              const warm = cs.sinceRare >= cs.expected;
+              const snap = packs.find(p=>p.id===sel.id);
+              const rareIn30 = snap?.streak?.rareIn30 ?? null;
+              const rareOdds = (sel.odds?.buckets||[]).slice(2).reduce((s,b) => s + (b.oddsPercent||0), 0);
+              const expectedIn30 = Math.round(30 * rareOdds / 100);
+              const serverStreak = snap?.streak?.sinceRare || (cs?.sinceRare) || 0;
+              if (serverStreak < 5 && (rareIn30 === null || rareIn30 >= expectedIn30)) return null;
+              const hot = serverStreak >= (snap?.streak?.expected||4) * 1.5;
+              const warm = serverStreak >= (snap?.streak?.expected||4);
               return (
                 <div className={`streak-banner ${hot ? 'streak-hot' : warm ? 'streak-warm' : 'streak-mild'}`}>
                   <span className="streak-icon">{hot ? '🔥' : warm ? '⚡' : '📊'}</span>
                   <span className="streak-text">
-                    <strong>{cs.sinceRare} pulls</strong> since last rare+ {hot ? '— cold streak, EV building' : warm ? '— trending cold' : `(avg every ~${cs.expected})`}
+                    <strong>{serverStreak} pulls</strong> since last rare+
+                    {rareIn30 !== null && <span className="rare-density"> · {rareIn30} of last 30 are rare+ (expected ~{expectedIn30})</span>}
+                    {hot ? ' — cold streak, EV building' : warm ? ' — trending cold' : ''}
                   </span>
                 </div>
               );
