@@ -426,7 +426,14 @@ export default function App(){
                 <button key={t} className={`tf ${feedTierFilter===t?'tf-ac':''}`} style={feedTierFilter===t&&t!=='ALL'?{background:TIER_COLORS[t]||'#6B7280',color:'#fff',borderColor:TIER_COLORS[t]||'#6B7280'}:{}} onClick={()=>setFeedTierFilter(t)}>{t==='ALL'?'All':t}</button>
               ))}
             </div>
-            <div className="pull-list">{!filteredPulls.length?<div className="empty-p">Monitoring for pulls...</div>:filteredPulls.filter(p=>feedTierFilter==='ALL'||p.tier===feedTierFilter).slice(0,50).map(p=><PullItem key={p.id} pull={p} packTitle={packTitleMap[p.pack_id]} onPackClick={handlePullClick} odds={packOddsMap[p.pack_id]}/>)}</div>
+            <div className="pull-list">{!filteredPulls.length?<div className="empty-p">Monitoring for pulls...</div>:filteredPulls.filter(p=>{
+              if(feedTierFilter==='ALL')return true;
+              const odds=packOddsMap[p.pack_id];
+              if(!odds?.buckets?.length)return p.tier===feedTierFilter;
+              const idx=odds.buckets.findIndex(b=>b.tier===p.tier);
+              if(idx<0)return p.tier===feedTierFilter;
+              return displayTier(p.tier,idx,odds.buckets.length)===feedTierFilter;
+            }).slice(0,50).map(p=><PullItem key={p.id} pull={p} packTitle={packTitleMap[p.pack_id]} onPackClick={handlePullClick} odds={packOddsMap[p.pack_id]}/>)}</div>
           </div>
         </div>
       )}
