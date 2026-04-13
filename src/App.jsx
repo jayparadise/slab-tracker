@@ -194,7 +194,7 @@ export default function App(){
     try{
       const[{data:pd},{data:latestSnaps},{data:pld}]=await Promise.all([
         supabase.from('pack_config').select('*').eq('active',true),
-        supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,calibrated_ev_usd,inventory_count,out_of_stock,polled_at,price_usd,real_avg_pull_value,total_cumulative_pulls,cold_streak,rare_in_last_30,epic_in_last_30,last_pull_at').order('polled_at',{ascending:false}).limit(200),
+        supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,calibrated_ev_usd,inventory_count,out_of_stock,polled_at,price_usd,real_avg_pull_value,total_cumulative_pulls,cold_streak,rare_in_last_30,epic_in_last_30,last_pull_at,simple_ev').order('polled_at',{ascending:false}).limit(200),
         supabase.from('pulls').select('*').order('detected_at',{ascending:false}).limit(500),
       ]);
       if(pd){
@@ -227,7 +227,8 @@ export default function App(){
           const epicIn30 = snap ? Number(snap.epic_in_last_30 || 0) : 0;
           const streak = (snap && (serverStreak > 0 || rareIn30 > 0)) ? { sinceRare: serverStreak, expected: expectedInterval, rareOdds, rareIn30, epicIn30 } : null;
           const lastPullAt = snap?.last_pull_at || lastPullMap[p.id] || null;
-          return{...p,evRatio:r,signal:getValueSignal(r),realAvgPull:avgPull,totalPulls:totalP,evTrend,lastPullAt,streak};
+          const simpleEv = snap?.simple_ev ? Number(snap.simple_ev) : null;
+          return{...p,evRatio:r,signal:getValueSignal(r),realAvgPull:avgPull,totalPulls:totalP,evTrend,lastPullAt,streak,simpleEv};
         }));
       }
       if(pld)setPulls(pld);
@@ -280,6 +281,7 @@ export default function App(){
         case'price':va=Number(a.price_usd);vb=Number(b.price_usd);break;
         case'rare30':va=a.streak?.rareIn30??99;vb=b.streak?.rareIn30??99;break;
         case'epic30':va=a.streak?.epicIn30??99;vb=b.streak?.epicIn30??99;break;
+        case'sev':va=a.simpleEv??0;vb=b.simpleEv??0;break;
         case'pulls':va=a.totalPulls;vb=b.totalPulls;break;
         case'lastpull':va=a.lastPullAt?new Date(a.lastPullAt).getTime():0;vb=b.lastPullAt?new Date(b.lastPullAt).getTime():0;break;
         default:va=a.evRatio;vb=b.evRatio;
@@ -397,7 +399,7 @@ export default function App(){
           <div className="pack-list">
             <div className="list-hdr"><span>{section==='ALL'?'All Packs':section==='SPORTS'?'Sports Packs':'Collectible Packs'}</span></div>
             <div className="rows-wrap">
-            <div className="tbl-hdr"><span className="c1">#</span><span className="c2">PACK</span><span className="c3 sortable" onClick={()=>handleSort('ev')}>EV RATIO{sortArrow('ev')}</span><span className="c4 sortable" onClick={()=>handleSort('price')}>PRICE{sortArrow('price')}</span><span className="c5 sortable" onClick={()=>handleSort('rare30')}>RARE+/30{sortArrow('rare30')}</span><span className="c10 sortable" onClick={()=>handleSort('epic30')}>EPIC+/30{sortArrow('epic30')}</span><span className="c6 sortable" onClick={()=>handleSort('pulls')}>PULLS{sortArrow('pulls')}</span><span className="c7">SIGNAL</span><span className="c9">STREAK</span><span className="c8 sortable" onClick={()=>handleSort('lastpull')}>LAST PULL{sortArrow('lastpull')}</span></div>
+            <div className="tbl-hdr"><span className="c1">#</span><span className="c2">PACK</span><span className="c3 sortable" onClick={()=>handleSort('ev')}>EV RATIO{sortArrow('ev')}</span><span className="c11 sortable" onClick={()=>handleSort('sev')}>SIMPLE EV{sortArrow('sev')}</span><span className="c4 sortable" onClick={()=>handleSort('price')}>PRICE{sortArrow('price')}</span><span className="c5 sortable" onClick={()=>handleSort('rare30')}>RARE+/30{sortArrow('rare30')}</span><span className="c10 sortable" onClick={()=>handleSort('epic30')}>EPIC+/30{sortArrow('epic30')}</span><span className="c6 sortable" onClick={()=>handleSort('pulls')}>PULLS{sortArrow('pulls')}</span><span className="c7">SIGNAL</span><span className="c9">STREAK</span><span className="c8 sortable" onClick={()=>handleSort('lastpull')}>LAST PULL{sortArrow('lastpull')}</span></div>
             <div className="rows">
               {filtered.map((p,i)=>{
                 const ri30=p.streak?.rareIn30??null;
@@ -413,6 +415,7 @@ export default function App(){
                   <span className="c1">#{i+1}</span>
                   <div className="c2"><div className="rn">{p.title}</div>{p.out_of_stock&&<div className="rm"><span className="oos">OUT OF STOCK</span></div>}</div>
                   <div className="c3"><span className="ev-n">{p.evRatio.toFixed(3)}</span><Sparkline data={(snapshots[p.id]||[]).map(s=>Number(s.effective_ev_ratio))} width={40} height={16} color={p.evRatio>=1?'#334155':'#DC2626'}/></div>
+                  <span className="c11" style={{fontWeight:600,color:p.simpleEv&&p.simpleEv>=1.10?'#DC2626':p.simpleEv&&p.simpleEv>=1.03?'#F59E0B':'var(--dim)'}}>{p.simpleEv?p.simpleEv.toFixed(3):'—'}</span>
                   <span className="c4">${Number(p.price_usd).toFixed(0)}</span>
                   <span className="c5">{ri30!==null?<span style={{fontWeight:600,color:cold?'#2563EB':'var(--dim)'}}>{ri30}/{expected30}</span>:'—'}</span>
                   <span className="c10">{ei30!==null&&expectedEpic30>0?<span style={{fontWeight:600,color:epicCold?'#7C3AED':'var(--dim)'}}>{ei30}/{expectedEpic30}</span>:'—'}</span>
