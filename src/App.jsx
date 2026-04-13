@@ -377,6 +377,7 @@ export default function App(){
         <div className="main">
           <div className="pack-list">
             <div className="list-hdr"><span>{section==='ALL'?'All Packs':section==='SPORTS'?'Sports Packs':'Collectible Packs'}</span></div>
+            <div className="rows-wrap">
             <div className="tbl-hdr"><span className="c1">#</span><span className="c2">PACK</span><span className="c3 sortable" onClick={()=>handleSort('ev')}>EV RATIO{sortArrow('ev')}</span><span className="c4 sortable" onClick={()=>handleSort('price')}>PRICE{sortArrow('price')}</span><span className="c5 sortable" onClick={()=>handleSort('trend')}>TREND{sortArrow('trend')}</span><span className="c6 sortable" onClick={()=>handleSort('pulls')}>PULLS{sortArrow('pulls')}</span><span className="c7">SIGNAL</span><span className="c9">STREAK</span><span className="c8 sortable" onClick={()=>handleSort('lastpull')}>LAST PULL{sortArrow('lastpull')}</span></div>
             <div className="rows">
               {filtered.map((p,i)=>(
@@ -393,6 +394,7 @@ export default function App(){
                 </div>
               ))}
               {!filtered.length&&<div className="empty">Loading packs...</div>}
+            </div>
             </div>
           </div>
           <div className="feeds">
