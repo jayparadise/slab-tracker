@@ -224,7 +224,7 @@ export default function App(){
           const expectedInterval = rareOdds > 0 ? Math.round(100 / rareOdds) : 20;
           const serverStreak = snap ? Number(snap.cold_streak || 0) : 0;
           const rareIn30 = snap ? Number(snap.rare_in_last_30 || 0) : 0;
-          const streak = serverStreak > 0 ? { sinceRare: serverStreak, expected: expectedInterval, rareOdds, rareIn30 } : null;
+          const streak = (snap && (serverStreak > 0 || rareIn30 > 0)) ? { sinceRare: serverStreak, expected: expectedInterval, rareOdds, rareIn30 } : null;
           const lastPullAt = snap?.last_pull_at || lastPullMap[p.id] || null;
           return{...p,evRatio:r,signal:getValueSignal(r),realAvgPull:avgPull,totalPulls:totalP,evTrend,lastPullAt,streak};
         }));
@@ -347,15 +347,17 @@ export default function App(){
               const rareOdds = (sel.odds?.buckets||[]).slice(2).reduce((s,b) => s + (b.oddsPercent||0), 0);
               const expectedIn30 = Math.round(30 * rareOdds / 100);
               const serverStreak = snap?.streak?.sinceRare || (cs?.sinceRare) || 0;
-              if (serverStreak < 5 && (rareIn30 === null || rareIn30 >= expectedIn30)) return null;
+              if (rareIn30 === null && serverStreak < 5) return null;
               const hot = serverStreak >= (snap?.streak?.expected||4) * 1.5;
               const warm = serverStreak >= (snap?.streak?.expected||4);
+              const mild = serverStreak >= 5;
               return (
                 <div className={`streak-banner ${hot ? 'streak-hot' : warm ? 'streak-warm' : 'streak-mild'}`}>
                   <span className="streak-icon">{hot ? '🔥' : warm ? '⚡' : '📊'}</span>
                   <span className="streak-text">
-                    <strong>{serverStreak} pulls</strong> since last rare+
-                    {rareIn30 !== null && <span className="rare-density"> · {rareIn30} of last 30 are rare+ (expected ~{expectedIn30})</span>}
+                    {serverStreak >= 5 && <><strong>{serverStreak} pulls</strong> since last rare+</>}
+                    {serverStreak >= 5 && rareIn30 !== null && ' · '}
+                    {rareIn30 !== null && <span className="rare-density">{rareIn30} of last 30 are rare+ (expected ~{expectedIn30})</span>}
                     {hot ? ' — cold streak, EV building' : warm ? ' — trending cold' : ''}
                   </span>
                 </div>
