@@ -275,7 +275,7 @@ export default function App(){
       switch(sortBy){
         case'ev':va=a.evRatio;vb=b.evRatio;break;
         case'price':va=Number(a.price_usd);vb=Number(b.price_usd);break;
-        case'trend':va=a.evTrend;vb=b.evTrend;break;
+        case'rare30':va=a.streak?.rareIn30??99;vb=b.streak?.rareIn30??99;break;
         case'pulls':va=a.totalPulls;vb=b.totalPulls;break;
         case'lastpull':va=a.lastPullAt?new Date(a.lastPullAt).getTime():0;vb=b.lastPullAt?new Date(b.lastPullAt).getTime():0;break;
         default:va=a.evRatio;vb=b.evRatio;
@@ -382,21 +382,26 @@ export default function App(){
           <div className="pack-list">
             <div className="list-hdr"><span>{section==='ALL'?'All Packs':section==='SPORTS'?'Sports Packs':'Collectible Packs'}</span></div>
             <div className="rows-wrap">
-            <div className="tbl-hdr"><span className="c1">#</span><span className="c2">PACK</span><span className="c3 sortable" onClick={()=>handleSort('ev')}>EV RATIO{sortArrow('ev')}</span><span className="c4 sortable" onClick={()=>handleSort('price')}>PRICE{sortArrow('price')}</span><span className="c5 sortable" onClick={()=>handleSort('trend')}>TREND{sortArrow('trend')}</span><span className="c6 sortable" onClick={()=>handleSort('pulls')}>PULLS{sortArrow('pulls')}</span><span className="c7">SIGNAL</span><span className="c9">STREAK</span><span className="c8 sortable" onClick={()=>handleSort('lastpull')}>LAST PULL{sortArrow('lastpull')}</span></div>
+            <div className="tbl-hdr"><span className="c1">#</span><span className="c2">PACK</span><span className="c3 sortable" onClick={()=>handleSort('ev')}>EV RATIO{sortArrow('ev')}</span><span className="c4 sortable" onClick={()=>handleSort('price')}>PRICE{sortArrow('price')}</span><span className="c5 sortable" onClick={()=>handleSort('rare30')}>RARE+/30{sortArrow('rare30')}</span><span className="c6 sortable" onClick={()=>handleSort('pulls')}>PULLS{sortArrow('pulls')}</span><span className="c7">SIGNAL</span><span className="c9">STREAK</span><span className="c8 sortable" onClick={()=>handleSort('lastpull')}>LAST PULL{sortArrow('lastpull')}</span></div>
             <div className="rows">
-              {filtered.map((p,i)=>(
+              {filtered.map((p,i)=>{
+                const ri30=p.streak?.rareIn30??null;
+                const rareOdds=(p.odds?.buckets||[]).slice(2).reduce((s,b)=>s+(b.oddsPercent||0),0);
+                const expected30=Math.round(30*rareOdds/100);
+                const cold=ri30!==null&&ri30<expected30;
+                return(
                 <div key={p.id} className="row" onClick={()=>setSelectedId(p.id)}>
                   <span className="c1">#{i+1}</span>
                   <div className="c2"><div className="rn">{p.title}</div>{p.out_of_stock&&<div className="rm"><span className="oos">OUT OF STOCK</span></div>}</div>
                   <div className="c3"><span className="ev-n">{p.evRatio.toFixed(3)}</span><Sparkline data={(snapshots[p.id]||[]).map(s=>Number(s.effective_ev_ratio))} width={40} height={16} color={p.evRatio>=1?'#334155':'#DC2626'}/></div>
                   <span className="c4">${Number(p.price_usd).toFixed(0)}</span>
-                  <span className="c5" style={{fontWeight:600,color:p.evTrend>=0.10?'#16A34A':p.evTrend<=-0.10?'#DC2626':'#78716C'}}>{p.evTrend>=0.10?'▲':p.evTrend<=-0.10?'▼':'—'}{Math.abs(p.evTrend)>=0.01?` ${p.evTrend>0?'+':''}${p.evTrend.toFixed(2)}`:''}</span>
+                  <span className="c5">{ri30!==null?<span style={{fontWeight:600,color:cold?'#2563EB':'var(--dim)'}}>{ri30}/{expected30}</span>:'—'}</span>
                   <span className="c6">{p.totalPulls>0?p.totalPulls.toLocaleString():'—'}</span>
                   <span className="c7"><span className="sig-sm" style={{color:p.signal.color,background:p.signal.bg}}>{p.signal.label}</span></span>
                   <span className="c9">{p.streak&&p.streak.sinceRare>=p.streak.expected?<span className="streak-cold">❄️ {p.streak.sinceRare}</span>:p.streak&&p.streak.sinceRare>=5?<span className="streak-num">{p.streak.sinceRare}</span>:'—'}</span>
                   <span className="c8">{p.lastPullAt?timeAgo(p.lastPullAt):'—'}</span>
                 </div>
-              ))}
+                );})}
               {!filtered.length&&<div className="empty">Loading packs...</div>}
             </div>
             </div>
