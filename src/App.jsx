@@ -191,20 +191,15 @@ export default function App(){
     try{
       const[{data:pd},{data:latestSnaps},{data:pld}]=await Promise.all([
         supabase.from('pack_config').select('*').eq('active',true),
-        supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,calibrated_ev_usd,inventory_count,out_of_stock,polled_at,price_usd,real_avg_pull_value,total_cumulative_pulls').order('polled_at',{ascending:false}).limit(200),
-        supabase.from('pulls').select('*').order('detected_at',{ascending:false}).limit(500),
+        supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,calibrated_ev_usd,inventory_count,out_of_stock,polled_at,price_usd,real_avg_pull_value,total_cumulative_pulls,cold_streak').order('polled_at',{ascending:false}).limit(200),
+        supabase.from('pulls').select('*').order('detected_at',{ascending:false}).limit(100),
       ]);
       if(pd){
         const latest={};
         for(const s of latestSnaps||[]){if(!latest[s.pack_id])latest[s.pack_id]=s;}
         
         const lastPullMap={};
-        const pullsByPack={};
-        for(const pl of pld||[]){
-          if(!lastPullMap[pl.pack_id])lastPullMap[pl.pack_id]=pl.detected_at;
-          if(!pullsByPack[pl.pack_id])pullsByPack[pl.pack_id]=[];
-          pullsByPack[pl.pack_id].push(pl);
-        }
+        for(const pl of pld||[]){if(!lastPullMap[pl.pack_id])lastPullMap[pl.pack_id]=pl.detected_at;}
         
         setPacks(pd.map(p=>{
           const snap=latest[p.id];
@@ -221,7 +216,11 @@ export default function App(){
             if(older>0)evTrend=newest-older;
           }
           
-          const streak = getColdStreak(pullsByPack[p.id]||[], p.odds);
+          // Cold streak from server-side computation (accurate per-pack)
+          const rareOdds = (p.odds?.buckets||[]).slice(2).reduce((s,b) => s + (b.oddsPercent||0), 0);
+          const expectedInterval = rareOdds > 0 ? Math.round(100 / rareOdds) : 20;
+          const serverStreak = snap ? Number(snap.cold_streak || 0) : 0;
+          const streak = serverStreak > 0 ? { sinceRare: serverStreak, expected: expectedInterval, rareOdds } : null;
           return{...p,evRatio:r,signal:getValueSignal(r),realAvgPull:avgPull,totalPulls:totalP,evTrend,lastPullAt:lastPullMap[p.id]||null,streak};
         }));
       }
