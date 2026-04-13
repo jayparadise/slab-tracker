@@ -184,6 +184,7 @@ export default function App(){
   const[packPulls,setPackPulls]=useState([]);
   const[chartRange,setChartRange]=useState('ALL');
   const[pullTierFilter,setPullTierFilter]=useState('ALL');
+  const[feedTierFilter,setFeedTierFilter]=useState('ALL');
 
   const packTitleMap=useMemo(()=>{const m={};packs.forEach(p=>{m[p.id]=p.title;});return m;},[packs]);
   const packCatMap=useMemo(()=>{const m={};packs.forEach(p=>{m[p.id]=p.category;});return m;},[packs]);
@@ -418,7 +419,12 @@ export default function App(){
           </div>
           <div className="feeds">
             <div className="feed-hdr"><div className="feed-t"><span>🔥</span> Just Pulled</div><div className="live-sm"><span className="dot-sm"/><span>live</span></div></div>
-            <div className="pull-list">{!filteredPulls.length?<div className="empty-p">Monitoring for pulls...</div>:filteredPulls.slice(0,50).map(p=><PullItem key={p.id} pull={p} packTitle={packTitleMap[p.pack_id]} onPackClick={handlePullClick} odds={packOddsMap[p.pack_id]}/>)}</div>
+            <div className="tier-filters" style={{padding:'4px 0'}}>
+              {['ALL','rare','epic','chase','grail'].map(t=>(
+                <button key={t} className={`tf ${feedTierFilter===t?'tf-ac':''}`} style={feedTierFilter===t&&t!=='ALL'?{background:TIER_COLORS[t]||'#6B7280',color:'#fff',borderColor:TIER_COLORS[t]||'#6B7280'}:{}} onClick={()=>setFeedTierFilter(t)}>{t==='ALL'?'All':t}</button>
+              ))}
+            </div>
+            <div className="pull-list">{!filteredPulls.length?<div className="empty-p">Monitoring for pulls...</div>:filteredPulls.filter(p=>feedTierFilter==='ALL'||p.tier===feedTierFilter).slice(0,50).map(p=><PullItem key={p.id} pull={p} packTitle={packTitleMap[p.pack_id]} onPackClick={handlePullClick} odds={packOddsMap[p.pack_id]}/>)}</div>
           </div>
         </div>
       )}
