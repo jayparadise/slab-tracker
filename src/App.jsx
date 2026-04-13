@@ -10,6 +10,7 @@ const CATEGORY_COLORS = {
 };
 const SPORTS_CATS = new Set(['football','baseball','basketball','sports','soccer','hockey']);
 function isSports(cat) { return SPORTS_CATS.has(cat); }
+const isSealed = (id) => id.includes('sealed') || id.includes('booster');
 
 // Map Courtyard's raw tier names to display names based on bucket count
 const TIER_MAP_5 = ['common','uncommon','rare','epic','chase'];
@@ -258,8 +259,9 @@ export default function App(){
   },[selectedId]);
 
   const sectionPacks=useMemo(()=>{
-    if(section==='ALL')return packs;
-    return packs.filter(p=>section==='SPORTS'?isSports(p.category):!isSports(p.category));
+    const base=packs.filter(p=>!isSealed(p.id));
+    if(section==='ALL')return base;
+    return base.filter(p=>section==='SPORTS'?isSports(p.category):!isSports(p.category));
   },[packs,section]);
 
   const categories=useMemo(()=>{const c={};sectionPacks.forEach(p=>{if(p.evRatio>0)c[p.category]=(c[p.category]||0)+1;});return c;},[sectionPacks]);
@@ -283,8 +285,9 @@ export default function App(){
   },[sectionPacks,catFilter,sortBy,sortDir]);
 
   const filteredPulls=useMemo(()=>{
-    if(section==='ALL')return pulls;
-    return pulls.filter(p=>{const cat=packCatMap[p.pack_id];if(!cat)return section==='COLLECTIBLES';return section==='SPORTS'?isSports(cat):!isSports(cat);});
+    const base=pulls.filter(p=>!isSealed(p.pack_id));
+    if(section==='ALL')return base;
+    return base.filter(p=>{const cat=packCatMap[p.pack_id];if(!cat)return section==='COLLECTIBLES';return section==='SPORTS'?isSports(cat):!isSports(cat);});
   },[pulls,section,packCatMap]);
 
   const sel=packs.find(p=>p.id===selectedId);
@@ -294,8 +297,8 @@ export default function App(){
   const handleSort=useCallback((col)=>{if(sortBy===col)setSortDir(d=>d==='desc'?'asc':'desc');else{setSortBy(col);setSortDir('desc');}},[sortBy]);
   const sortArrow=(col)=>sortBy===col?(sortDir==='desc'?' ▾':' ▴'):'';
 
-  const sportCount=packs.filter(p=>p.evRatio>0&&isSports(p.category)).length;
-  const collectCount=packs.filter(p=>p.evRatio>0&&!isSports(p.category)).length;
+  const sportCount=packs.filter(p=>p.evRatio>0&&isSports(p.category)&&!isSealed(p.id)).length;
+  const collectCount=packs.filter(p=>p.evRatio>0&&!isSports(p.category)&&!isSealed(p.id)).length;
 
   return(
     <div className="app">
