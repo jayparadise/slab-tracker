@@ -192,7 +192,7 @@ export default function App(){
     try{
       const[{data:pd},{data:latestSnaps},{data:pld}]=await Promise.all([
         supabase.from('pack_config').select('*').eq('active',true),
-        supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,calibrated_ev_usd,inventory_count,out_of_stock,polled_at,price_usd,real_avg_pull_value,total_cumulative_pulls,cold_streak,rare_in_last_30').order('polled_at',{ascending:false}).limit(200),
+        supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,calibrated_ev_usd,inventory_count,out_of_stock,polled_at,price_usd,real_avg_pull_value,total_cumulative_pulls,cold_streak,rare_in_last_30,last_pull_at').order('polled_at',{ascending:false}).limit(200),
         supabase.from('pulls').select('*').order('detected_at',{ascending:false}).limit(100),
       ]);
       if(pd){
@@ -223,7 +223,8 @@ export default function App(){
           const serverStreak = snap ? Number(snap.cold_streak || 0) : 0;
           const rareIn30 = snap ? Number(snap.rare_in_last_30 || 0) : 0;
           const streak = serverStreak > 0 ? { sinceRare: serverStreak, expected: expectedInterval, rareOdds, rareIn30 } : null;
-          return{...p,evRatio:r,signal:getValueSignal(r),realAvgPull:avgPull,totalPulls:totalP,evTrend,lastPullAt:lastPullMap[p.id]||null,streak};
+          const lastPullAt = snap?.last_pull_at || lastPullMap[p.id] || null;
+          return{...p,evRatio:r,signal:getValueSignal(r),realAvgPull:avgPull,totalPulls:totalP,evTrend,lastPullAt,streak};
         }));
       }
       if(pld)setPulls(pld);
