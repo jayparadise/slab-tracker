@@ -46,8 +46,8 @@ function getColdStreak(pulls, odds) {
 }
 
 function getValueSignal(r){
-  if(r>=1.20)return{label:'GREAT VALUE',color:'#16A34A',bg:'rgba(22,163,74,0.1)'};
-  if(r>=1.10)return{label:'GOOD VALUE',color:'#334155',bg:'rgba(51,65,85,0.08)'};
+  if(r>=1.30)return{label:'GREAT VALUE',color:'#16A34A',bg:'rgba(22,163,74,0.1)'};
+  if(r>=1.20)return{label:'GOOD VALUE',color:'#334155',bg:'rgba(51,65,85,0.08)'};
   if(r>=1.00)return{label:'FAIR',color:'#A16207',bg:'rgba(161,98,7,0.08)'};
   if(r>=0.90)return{label:'BELOW AVERAGE',color:'#C2410C',bg:'rgba(194,65,12,0.08)'};
   return{label:'OVERPRICED',color:'#DC2626',bg:'rgba(220,38,38,0.08)'};
