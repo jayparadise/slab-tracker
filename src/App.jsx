@@ -30,6 +30,21 @@ function displayPullTier(rawTier, odds) {
   return displayTier(rawTier, idx, n);
 }
 
+// Cold streak: count pulls since last "rare+" (bucket index >= 2)
+function getColdStreak(pulls, odds) {
+  if (!pulls.length || !odds?.buckets) return null;
+  const rareTiers = new Set(odds.buckets.slice(2).map(b => b.tier));
+  let sinceRare = 0;
+  for (const p of pulls) {
+    if (rareTiers.has(p.tier)) break;
+    sinceRare++;
+  }
+  // Expected pulls between rares: 100 / sum(odds of rare+ tiers)
+  const rareOdds = odds.buckets.slice(2).reduce((s, b) => s + (b.oddsPercent || 0), 0);
+  const expected = rareOdds > 0 ? Math.round(100 / rareOdds) : 20;
+  return { sinceRare, expected, rareOdds };
+}
+
 function getValueSignal(r){
   if(r>=1.20)return{label:'GREAT VALUE',color:'#16A34A',bg:'rgba(22,163,74,0.1)'};
   if(r>=1.10)return{label:'GOOD VALUE',color:'#334155',bg:'rgba(51,65,85,0.08)'};
@@ -184,7 +199,12 @@ export default function App(){
         for(const s of latestSnaps||[]){if(!latest[s.pack_id])latest[s.pack_id]=s;}
         
         const lastPullMap={};
-        for(const pl of pld||[]){if(!lastPullMap[pl.pack_id])lastPullMap[pl.pack_id]=pl.detected_at;}
+        const pullsByPack={};
+        for(const pl of pld||[]){
+          if(!lastPullMap[pl.pack_id])lastPullMap[pl.pack_id]=pl.detected_at;
+          if(!pullsByPack[pl.pack_id])pullsByPack[pl.pack_id]=[];
+          pullsByPack[pl.pack_id].push(pl);
+        }
         
         setPacks(pd.map(p=>{
           const snap=latest[p.id];
@@ -201,7 +221,8 @@ export default function App(){
             if(older>0)evTrend=newest-older;
           }
           
-          return{...p,evRatio:r,signal:getValueSignal(r),realAvgPull:avgPull,totalPulls:totalP,evTrend,lastPullAt:lastPullMap[p.id]||null};
+          const streak = getColdStreak(pullsByPack[p.id]||[], p.odds);
+          return{...p,evRatio:r,signal:getValueSignal(r),realAvgPull:avgPull,totalPulls:totalP,evTrend,lastPullAt:lastPullMap[p.id]||null,streak};
         }));
       }
       if(pld)setPulls(pld);
@@ -313,6 +334,20 @@ export default function App(){
               <div className="sc"><div className="sl">REAL AVG PULL</div><div className="sv">{sel.realAvgPull>0?`$${sel.realAvgPull.toFixed(2)}`:'Tracking...'}</div></div>
               <div className="sc"><div className="sl">TOTAL PULLS</div><div className="sv">{sel.totalPulls>0?sel.totalPulls.toLocaleString():'0'}</div><div className="stat-sub">{sel.inventory_count} in inventory</div></div>
             </div>
+            {(()=>{
+              const cs = getColdStreak(packPulls, sel.odds);
+              if (!cs || cs.sinceRare < 3) return null;
+              const hot = cs.sinceRare >= cs.expected * 1.5;
+              const warm = cs.sinceRare >= cs.expected;
+              return (
+                <div className={`streak-banner ${hot ? 'streak-hot' : warm ? 'streak-warm' : 'streak-mild'}`}>
+                  <span className="streak-icon">{hot ? '🔥' : warm ? '⚡' : '📊'}</span>
+                  <span className="streak-text">
+                    <strong>{cs.sinceRare} pulls</strong> since last rare+ {hot ? '— cold streak, EV building' : warm ? '— trending cold' : `(avg every ~${cs.expected})`}
+                  </span>
+                </div>
+              );
+            })()}
             <div className="det-split">
               <div className="det-left">
                 <div className="det-pulls">
@@ -335,7 +370,7 @@ export default function App(){
         <div className="main">
           <div className="pack-list">
             <div className="list-hdr"><span>{section==='ALL'?'All Packs':section==='SPORTS'?'Sports Packs':'Collectible Packs'}</span></div>
-            <div className="tbl-hdr"><span className="c1">#</span><span className="c2">PACK</span><span className="c3 sortable" onClick={()=>handleSort('ev')}>EV RATIO{sortArrow('ev')}</span><span className="c4 sortable" onClick={()=>handleSort('price')}>PRICE{sortArrow('price')}</span><span className="c5 sortable" onClick={()=>handleSort('trend')}>TREND{sortArrow('trend')}</span><span className="c6 sortable" onClick={()=>handleSort('pulls')}>PULLS{sortArrow('pulls')}</span><span className="c7">SIGNAL</span><span className="c8 sortable" onClick={()=>handleSort('lastpull')}>LAST PULL{sortArrow('lastpull')}</span></div>
+            <div className="tbl-hdr"><span className="c1">#</span><span className="c2">PACK</span><span className="c3 sortable" onClick={()=>handleSort('ev')}>EV RATIO{sortArrow('ev')}</span><span className="c4 sortable" onClick={()=>handleSort('price')}>PRICE{sortArrow('price')}</span><span className="c5 sortable" onClick={()=>handleSort('trend')}>TREND{sortArrow('trend')}</span><span className="c6 sortable" onClick={()=>handleSort('pulls')}>PULLS{sortArrow('pulls')}</span><span className="c7">SIGNAL</span><span className="c9">STREAK</span><span className="c8 sortable" onClick={()=>handleSort('lastpull')}>LAST PULL{sortArrow('lastpull')}</span></div>
             <div className="rows">
               {filtered.map((p,i)=>(
                 <div key={p.id} className="row" onClick={()=>setSelectedId(p.id)}>
@@ -346,6 +381,7 @@ export default function App(){
                   <span className="c5" style={{fontWeight:600,color:p.evTrend>=0.10?'#16A34A':p.evTrend<=-0.10?'#DC2626':'#78716C'}}>{p.evTrend>=0.10?'▲':p.evTrend<=-0.10?'▼':'—'}{Math.abs(p.evTrend)>=0.01?` ${p.evTrend>0?'+':''}${p.evTrend.toFixed(2)}`:''}</span>
                   <span className="c6">{p.totalPulls>0?p.totalPulls.toLocaleString():'—'}</span>
                   <span className="c7"><span className="sig-sm" style={{color:p.signal.color,background:p.signal.bg}}>{p.signal.label}</span></span>
+                  <span className="c9">{p.streak&&p.streak.sinceRare>=p.streak.expected?<span className="streak-cold">❄️ {p.streak.sinceRare}</span>:p.streak&&p.streak.sinceRare>=3?<span className="streak-num">{p.streak.sinceRare}</span>:'—'}</span>
                   <span className="c8">{p.lastPullAt?timeAgo(p.lastPullAt):'—'}</span>
                 </div>
               ))}
