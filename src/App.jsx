@@ -192,7 +192,7 @@ export default function App(){
       const[{data:pd},{data:latestSnaps},{data:pld}]=await Promise.all([
         supabase.from('pack_config').select('*').eq('active',true),
         supabase.from('live_snapshots').select('pack_id,effective_ev_ratio,calibrated_ev_usd,inventory_count,out_of_stock,polled_at,price_usd,real_avg_pull_value,total_cumulative_pulls').order('polled_at',{ascending:false}).limit(200),
-        supabase.from('pulls').select('*').order('detected_at',{ascending:false}).limit(100),
+        supabase.from('pulls').select('*').order('detected_at',{ascending:false}).limit(500),
       ]);
       if(pd){
         const latest={};
@@ -336,7 +336,7 @@ export default function App(){
             </div>
             {(()=>{
               const cs = getColdStreak(packPulls, sel.odds);
-              if (!cs || cs.sinceRare < 3) return null;
+              if (!cs || cs.sinceRare < 5) return null;
               const hot = cs.sinceRare >= cs.expected * 1.5;
               const warm = cs.sinceRare >= cs.expected;
               return (
@@ -381,7 +381,7 @@ export default function App(){
                   <span className="c5" style={{fontWeight:600,color:p.evTrend>=0.10?'#16A34A':p.evTrend<=-0.10?'#DC2626':'#78716C'}}>{p.evTrend>=0.10?'▲':p.evTrend<=-0.10?'▼':'—'}{Math.abs(p.evTrend)>=0.01?` ${p.evTrend>0?'+':''}${p.evTrend.toFixed(2)}`:''}</span>
                   <span className="c6">{p.totalPulls>0?p.totalPulls.toLocaleString():'—'}</span>
                   <span className="c7"><span className="sig-sm" style={{color:p.signal.color,background:p.signal.bg}}>{p.signal.label}</span></span>
-                  <span className="c9">{p.streak&&p.streak.sinceRare>=p.streak.expected?<span className="streak-cold">❄️ {p.streak.sinceRare}</span>:p.streak&&p.streak.sinceRare>=3?<span className="streak-num">{p.streak.sinceRare}</span>:'—'}</span>
+                  <span className="c9">{p.streak&&p.streak.sinceRare>=p.streak.expected?<span className="streak-cold">❄️ {p.streak.sinceRare}</span>:p.streak&&p.streak.sinceRare>=5?<span className="streak-num">{p.streak.sinceRare}</span>:'—'}</span>
                   <span className="c8">{p.lastPullAt?timeAgo(p.lastPullAt):'—'}</span>
                 </div>
               ))}
@@ -390,7 +390,7 @@ export default function App(){
           </div>
           <div className="feeds">
             <div className="feed-hdr"><div className="feed-t"><span>🔥</span> Just Pulled</div><div className="live-sm"><span className="dot-sm"/><span>live</span></div></div>
-            <div className="pull-list">{!filteredPulls.length?<div className="empty-p">Monitoring for pulls...</div>:filteredPulls.map(p=><PullItem key={p.id} pull={p} packTitle={packTitleMap[p.pack_id]} onPackClick={handlePullClick} odds={packOddsMap[p.pack_id]}/>)}</div>
+            <div className="pull-list">{!filteredPulls.length?<div className="empty-p">Monitoring for pulls...</div>:filteredPulls.slice(0,50).map(p=><PullItem key={p.id} pull={p} packTitle={packTitleMap[p.pack_id]} onPackClick={handlePullClick} odds={packOddsMap[p.pack_id]}/>)}</div>
           </div>
         </div>
       )}
