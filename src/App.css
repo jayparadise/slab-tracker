@@ -1,8 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root { --bg: #F5F5F4; --surface: #FFFFFF; --border: #E7E5E4; --text: #1C1917; --dim: #78716C; --accent: #334155; --accent-bg: rgba(51,65,85,0.06); --accent-dark: #1E293B; --green: #16A34A; --red: #DC2626; --mono: 'IBM Plex Mono', monospace; }
-body { background: var(--bg); color: var(--text); font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 15px; -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; line-height: 1.5; }
-.app { min-height: 100vh; min-height: 100dvh; }
+body { background: var(--bg); color: var(--text); font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 15px; -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; line-height: 1.5; overflow-x: hidden; }
+.app { min-height: 100vh; min-height: 100dvh; max-width: 100vw; overflow-x: hidden; }
 
 .header { display: flex; align-items: center; justify-content: space-between; padding: 10px 24px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 100; }
 .h-left, .h-right { display: flex; align-items: center; gap: 12px; }
@@ -163,8 +163,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Source Sans 3', 
   .feeds { border-top: 1px solid var(--border); max-height: 400px; }
   .sg { grid-template-columns: repeat(2, 1fr); }
   .tbl-hdr,.row { grid-template-columns: 28px 1fr 80px 55px 70px; }
-  .c6,.c7,.c8 { display: none; }
-  .tbl-hdr .c6,.tbl-hdr .c7,.tbl-hdr .c8 { display: none; }
+  .c6,.c7,.c8,.c9 { display: none; }
+  .tbl-hdr .c6,.tbl-hdr .c7,.tbl-hdr .c8,.tbl-hdr .c9 { display: none; }
 }
 @media (max-width:600px) {
   .stab { padding: 8px 6px; font-size: 11px; }
@@ -181,20 +181,26 @@ body { background: var(--bg); color: var(--text); font-family: 'Source Sans 3', 
   .sg { grid-template-columns: 1fr 1fr; gap: 8px; }
   .sc { padding: 8px; }
   .sv { font-size: 14px; }
-  .detail { padding: 10px 12px; }
-  .det-card { padding: 12px; }
+  .detail { padding: 10px 12px; overflow-x: hidden; }
+  .det-card { padding: 12px; overflow: hidden; }
+  .det-hdr { flex-direction: column; gap: 8px; }
   .det-title { font-size: 16px; }
   .det-ev-n { font-size: 24px; }
   .det-split { grid-template-columns: 1fr; }
   .main { grid-template-columns: 1fr; }
   .tbl-hdr,.row { grid-template-columns: 22px 1fr 65px 48px; gap: 4px; padding: 7px 10px; font-size: 12px; }
-  .c5,.c6,.c7,.c8 { display: none; }
-  .tbl-hdr .c5,.tbl-hdr .c6,.tbl-hdr .c7,.tbl-hdr .c8 { display: none; }
+  .c5,.c6,.c7,.c8,.c9 { display: none; }
+  .tbl-hdr .c5,.tbl-hdr .c6,.tbl-hdr .c7,.tbl-hdr .c8,.tbl-hdr .c9 { display: none; }
   .ev-n { font-size: 12px; }
   .feeds { padding: 10px; }
+  .pull-item { overflow: hidden; }
+  .pull-info { min-width: 0; }
   .pull-img { width: 36px; height: 36px; }
   .pull-title { font-size: 11px; }
   .pull-fmv { font-size: 11px; }
+  .pull-ev { font-size: 10px; min-width: 40px; }
   .pull-img-popup { width: 300px; height: 300px; }
+  .streak-banner { font-size: 11px; padding: 6px 10px; }
+  .odds-row span { font-size: 11px; }
   .foot { font-size: 9px; }
 }
