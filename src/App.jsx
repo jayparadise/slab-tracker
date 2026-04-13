@@ -183,6 +183,7 @@ export default function App(){
   const[pollInfo,setPollInfo]=useState('');
   const[packPulls,setPackPulls]=useState([]);
   const[chartRange,setChartRange]=useState('ALL');
+  const[pullTierFilter,setPullTierFilter]=useState('ALL');
 
   const packTitleMap=useMemo(()=>{const m={};packs.forEach(p=>{m[p.id]=p.title;});return m;},[packs]);
   const packCatMap=useMemo(()=>{const m={};packs.forEach(p=>{m[p.id]=p.category;});return m;},[packs]);
@@ -251,7 +252,7 @@ export default function App(){
   },[fetchData,triggerPoll]);
 
   useEffect(()=>{
-    if(!selectedId){setPackPulls([]);return;}
+    if(!selectedId){setPackPulls([]);setPullTierFilter('ALL');return;}
     const f=async()=>{
       const{data}=await supabase.from('pulls').select('*').eq('pack_id',selectedId).order('detected_at',{ascending:false}).limit(100);
       if(data)setPackPulls(data);
@@ -363,7 +364,16 @@ export default function App(){
               <div className="det-left">
                 <div className="det-pulls">
                   <div className="section-hdr"><div className="feed-t"><span>🔥</span> Just Pulled</div><div className="live-sm"><span className="dot-sm"/><span>live</span></div></div>
-                  <div className="det-pull-list">{packPulls.length===0?<div className="empty-p">Monitoring for pulls...</div>:packPulls.map(p=>{
+                  {sel.odds?.buckets?.length>0&&(
+                    <div className="tier-filters">
+                      <button className={`tf ${pullTierFilter==='ALL'?'tf-ac':''}`} onClick={()=>setPullTierFilter('ALL')}>All</button>
+                      {sel.odds.buckets.map((b,i)=>{
+                        const dn=displayTier(b.tier,i,sel.odds.buckets.length);
+                        return <button key={b.tier} className={`tf ${pullTierFilter===b.tier?'tf-ac':''}`} style={pullTierFilter===b.tier?{background:TIER_COLORS[dn]||'#6B7280',color:'#fff',borderColor:TIER_COLORS[dn]||'#6B7280'}:{}} onClick={()=>setPullTierFilter(b.tier)}>{dn}</button>;
+                      })}
+                    </div>
+                  )}
+                  <div className="det-pull-list">{packPulls.length===0?<div className="empty-p">Monitoring for pulls...</div>:packPulls.filter(p=>pullTierFilter==='ALL'||p.tier===pullTierFilter).map(p=>{
                     const evAtPull=p.ev_at_pull?Number(p.ev_at_pull):null;
                     return <PullItem key={p.id} pull={p} odds={sel.odds} evAtPull={evAtPull}/>;
                   })}</div>
