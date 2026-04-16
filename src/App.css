@@ -184,14 +184,13 @@ body { background: var(--bg); color: var(--text); font-family: 'Source Sans 3', 
   .sg { grid-template-columns: 1fr 1fr; gap: 8px; }
   .sc { padding: 8px; }
   .sv { font-size: 14px; }
-  .detail { padding: 10px 12px; overflow-x: hidden; }
+  .detail { padding: 10px 12px; overflow-x: auto; }
   .det-card { padding: 12px; overflow: hidden; }
   .det-hdr { flex-direction: column; gap: 8px; }
   .det-title { font-size: 16px; }
   .det-ev-n { font-size: 24px; }
   .det-split { grid-template-columns: 1fr; }
   .main { grid-template-columns: 1fr; }
-  .ev-n { font-size: 12px; }
   .feeds { padding: 10px; }
   .pull-item { overflow: hidden; }
   .pull-info { min-width: 0; }
@@ -203,4 +202,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Source Sans 3', 
   .streak-banner { font-size: 11px; padding: 6px 10px; }
   .odds-row span { font-size: 11px; }
   .foot { font-size: 9px; }
+  .tbl-hdr, .row { gap: 4px; padding: 8px 10px; font-size: 11px; }
+  .tbl-hdr { font-size: 9px; padding: 6px 10px; }
+  .c2 .rn { font-size: 11px; }
 }
