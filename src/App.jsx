@@ -247,12 +247,15 @@ export default function App(){
     }catch{setPollInfo('error');}
   },[fetchData]);
 
+  // Nov 2 2026: the page no longer invokes poll-courtyard on a timer. pg_cron runs it once a
+  // minute server-side; every browser tab was ALSO firing it every 5s (~12x the intended DB
+  // load) and burning the Supabase Nano's Disk IO budget. The UI now just reads the tables the
+  // cron already wrote. triggerPoll is kept for the manual Refresh button only.
   useEffect(()=>{
     fetchData();
-    triggerPoll();
-    const t=setInterval(triggerPoll,5000);
+    const t=setInterval(fetchData,15000);
     return()=>clearInterval(t);
-  },[fetchData,triggerPoll]);
+  },[fetchData]);
 
   useEffect(()=>{
     if(!selectedId){setPackPulls([]);setPullTierFilter('ALL');return;}
@@ -260,7 +263,7 @@ export default function App(){
       const{data}=await supabase.from('pulls').select('*').eq('pack_id',selectedId).order('detected_at',{ascending:false}).limit(100);
       if(data)setPackPulls(data);
     };
-    f();const iv=setInterval(f,5000);return()=>clearInterval(iv);
+    f();const iv=setInterval(f,15000);return()=>clearInterval(iv);
   },[selectedId]);
 
   const sectionPacks=useMemo(()=>{
@@ -314,6 +317,7 @@ export default function App(){
           <span className="logo">SLAB TRACKER</span>
           <div className={`live-tag ${isLive?'on':''}`}><span className="dot"/><span>LIVE FEED</span></div>
           {lastPolled&&<span className="upd">Updated {timeAgo(lastPolled.toISOString())}</span>}
+          <button type="button" className="poll-info" onClick={triggerPoll} title="Run the Courtyard poll now (otherwise runs every minute server-side)">↻ Refresh</button>
           {pollInfo&&<span className="poll-info">{pollInfo}</span>}
         </div>
         <div className="h-right"><a href="https://courtyard.io/vending-machine" target="_blank" rel="noreferrer" className="open-btn">OPEN PACK</a></div>
